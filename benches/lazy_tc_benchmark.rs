@@ -14,7 +14,6 @@ fn generate_realistic_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
     let mut target_id = 0;
     let mut all_targets = Vec::new();
 
-    // Utils layer (leaf nodes)
     let utils_start = target_id;
     for _ in 0..num_utils {
         let target = format!("//utils:util{}", target_id);
@@ -27,7 +26,6 @@ fn generate_realistic_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
     }
     let utils_end = target_id;
 
-    // Libs layer
     let libs_start = target_id;
     for _ in 0..num_libs {
         let target = format!("//lib:lib{}", target_id);
@@ -53,7 +51,6 @@ fn generate_realistic_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
     }
     let libs_end = target_id;
 
-    // Services layer
     let services_start = target_id;
     for _ in 0..num_services {
         let target = format!("//service:svc{}", target_id);
@@ -79,7 +76,6 @@ fn generate_realistic_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
     }
     let services_end = target_id;
 
-    // Apps layer
     for _ in 0..num_apps {
         let target = format!("//app:app{}", target_id);
         facts.push(Fact {
@@ -107,7 +103,6 @@ fn generate_realistic_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
         target_id += 1;
     }
 
-    // Transitive closure rules
     rules.push(Rule {
         head: Predicate {
             name: "transitive_deps".to_string(),
@@ -172,8 +167,6 @@ fn main() {
         db.compile_rule(rule);
     }
     println!("Setup complete");
-
-    // Test 1: Query deps for single app (lazy - should be fast)
     println!("\n--- Test 1: Lazy single-target query ---");
     let target_name = format!("//app:app{}", scale - 1);
 
@@ -187,7 +180,6 @@ fn main() {
         results.len()
     );
 
-    // Test 2: Query deps for 10 different apps (should reuse cache)
     println!("\n--- Test 2: Multiple lazy queries (with cache) ---");
     let start = Instant::now();
     let mut total_results = 0;
@@ -204,11 +196,9 @@ fn main() {
         total_results / 10
     );
 
-    // Test 3: Lazy iterator API (true lazy - computes on demand)
     println!("\n--- Test 3: Lazy iterator (true lazy evaluation) ---");
     let target_name = format!("//app:app{}", scale - 1);
 
-    // Test 3a: Get just the first 10 results
     let start = Instant::now();
     let mut iter = db.query_tc_iter("transitive_deps", &target_name);
     let first_10: Vec<_> = iter.by_ref().take(10).collect();
@@ -219,7 +209,6 @@ fn main() {
         first_10.len()
     );
 
-    // Test 3b: Count the rest without allocating
     let start = Instant::now();
     let remaining = iter.count();
     let count_time = start.elapsed();
@@ -229,7 +218,6 @@ fn main() {
         remaining
     );
 
-    // Test 3c: Collect all results fresh
     let start = Instant::now();
     let iter = db.query_tc_iter("transitive_deps", &target_name);
     let all_results: Vec<_> = iter.collect();

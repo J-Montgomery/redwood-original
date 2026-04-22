@@ -126,7 +126,6 @@ fn main() {
         println!("Deps facts: {}", deps_facts.len());
         println!("Index entries: {}", index.len());
 
-        // Measure BFS only (no allocation)
         let bfs_start = Instant::now();
         let mut visited: HashSet<&Value> = HashSet::new();
         let mut queue: VecDeque<&Value> = VecDeque::new();
@@ -152,7 +151,6 @@ fn main() {
         let num_reachable = visited.len() - 1;
         println!("BFS traversal: {:?} ({} reachable nodes)", bfs_time, num_reachable);
 
-        // Measure allocation only (Facts with strings)
         let alloc_start = Instant::now();
         let head_name = "transitive_deps".to_string();
         let start_clone = start_value.clone();
@@ -167,7 +165,6 @@ fn main() {
         let alloc_time = alloc_start.elapsed();
         println!("Fact allocation: {:?} ({} facts)", alloc_time, results.len());
 
-        // Measure allocation with pre-interned predicate (single Rc<str>)
         let alloc2_start = Instant::now();
         let head_rc: Rc<str> = Rc::from("transitive_deps");
         let mut results2: Vec<(Rc<str>, Value, Value)> = Vec::with_capacity(num_reachable);
@@ -178,13 +175,11 @@ fn main() {
         let alloc2_time = alloc2_start.elapsed();
         println!("Tuple allocation (Rc<str>): {:?}", alloc2_time);
 
-        // Measure just counting (no allocation at all)
         let count_start = Instant::now();
         let count = visited.len() - 1;
         let count_time = count_start.elapsed();
         println!("Just count: {:?} ({} results)", count_time, count);
 
-        // Total as comparison
         let total = bfs_time + alloc_time;
         println!("\nBreakdown:");
         println!("  BFS:        {:?} ({:.1}%)", bfs_time, bfs_time.as_secs_f64() / total.as_secs_f64() * 100.0);

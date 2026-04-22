@@ -117,7 +117,6 @@ fn benchmark_incremental_insert(num_targets: usize) {
     let insert_time = insert_start.elapsed();
     println!("Insert new target: {:?}", insert_time);
 
-    // Query the OLD target again (should be cached)
     let requery_start = Instant::now();
     let requery_results = db.query(
         "transitive_deps",
@@ -130,7 +129,6 @@ fn benchmark_incremental_insert(num_targets: usize) {
         requery_results.len()
     );
 
-    // Query the NEW target (will need computation)
     let query_start = Instant::now();
     let new_results = db.query("transitive_deps", &[Some(&new_target), None]);
     let query_time = query_start.elapsed();
@@ -140,7 +138,6 @@ fn benchmark_incremental_insert(num_targets: usize) {
         new_results.len()
     );
 
-    // Check incrementality: re-query should be much faster than baseline
     if requery_time < baseline_time / 3 {
         println!(
             "✓ Incremental: old target cached ({}x faster)",

@@ -6,7 +6,6 @@ fn generate_large_dataset(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
     let mut facts = Vec::new();
     let mut rules = Vec::new();
 
-    // Generate targets
     for i in 0..num_targets {
         let target = format!("//project{}:binary{}", i / 100, i % 100);
 
@@ -23,7 +22,6 @@ fn generate_large_dataset(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
             ],
         });
 
-        // Generate multiple sources per target
         for j in 0..10 {
             facts.push(Fact {
                 predicate: "src_file".to_string(),
@@ -42,7 +40,6 @@ fn generate_large_dataset(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
             ],
         });
 
-        // Add dependencies (connect to previous targets)
         if i > 0 {
             let dep_target = format!("//project{}:binary{}", (i - 1) / 100, (i - 1) % 100);
             facts.push(Fact {
@@ -52,7 +49,6 @@ fn generate_large_dataset(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
         }
     }
 
-    // Add rules
     // sources(T, F) :- src_file(T, F)
     rules.push(Rule {
         head: Predicate {
@@ -180,7 +176,6 @@ fn benchmark_queries(num_targets: usize) {
         db.compile_rule(rule);
     }
 
-    // Query all targets
     let start = Instant::now();
     let results = db.query("target", &[]);
     let query_time = start.elapsed();
@@ -190,7 +185,6 @@ fn benchmark_queries(num_targets: usize) {
         results.len()
     );
 
-    // Query all sources (derived)
     let start = Instant::now();
     let results = db.query("sources", &[]);
     let query_time = start.elapsed();
@@ -200,7 +194,6 @@ fn benchmark_queries(num_targets: usize) {
         results.len()
     );
 
-    // Query rust targets (filtered)
     let start = Instant::now();
     let results = db.query("rust_target", &[]);
     let query_time = start.elapsed();
@@ -210,7 +203,6 @@ fn benchmark_queries(num_targets: usize) {
         results.len()
     );
 
-    // Query transitive deps (joins)
     let start = Instant::now();
     let results = db.query("transitive_deps", &[]);
     let query_time = start.elapsed();
@@ -234,7 +226,6 @@ fn benchmark_incremental_updates(num_targets: usize) {
         db.compile_rule(rule);
     }
 
-    // Retract and re-insert some facts
     let facts_to_update: Vec<Fact> = facts.iter().take(100).cloned().collect();
 
     let start = Instant::now();
@@ -327,17 +318,14 @@ fn main() {
             benchmark_large_scale(scale);
         }
         _ => {
-            // Warm up
             let (facts, _) = generate_large_dataset(10);
             let mut db = Engine::new();
             db.insert_facts(facts);
 
-            // Run benchmarks
+
             benchmark_insertion(1000);
             benchmark_queries(1000);
             benchmark_incremental_updates(1000);
-
-            // Test scalability
             benchmark_scalability();
         }
     }

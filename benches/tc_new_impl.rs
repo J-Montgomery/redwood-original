@@ -115,19 +115,18 @@ fn main() {
             scale - 1
         );
 
-        // First query (cold - includes adjacency list build)
+        // Cold query
         let start = Instant::now();
         let results = db.query("transitive_deps", &[Some(&top_target), None]);
         let cold_time = start.elapsed();
         println!("Query 1 (cold): {:?} ({} results)", cold_time, results.len());
 
-        // Second query (warm - adjacency list cached)
+        // Warm query
         let start = Instant::now();
         let results = db.query("transitive_deps", &[Some(&top_target), None]);
         let warm_time = start.elapsed();
         println!("Query 2 (warm): {:?} ({} results)", warm_time, results.len());
 
-        // Third query - different target
         let mid_target = format!(
             "//layer{}:target{}",
             ((scale as f64).log2().ceil() as usize) / 2,

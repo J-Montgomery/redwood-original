@@ -56,7 +56,6 @@ fn main() {
     let deps_facts = generate_layered_graph(scale);
     println!("Generated {} edge facts", deps_facts.len());
 
-    // Step 1: Build hash->id mapping (NEW - no string cloning)
     let step1_start = Instant::now();
     let mut string_to_id: HashMap<u64, u32> = HashMap::with_capacity(deps_facts.len());
     let mut id_to_fact_ref: Vec<(usize, u8)> = Vec::with_capacity(deps_facts.len());
@@ -78,7 +77,6 @@ fn main() {
     let step1_time = step1_start.elapsed();
     println!("Step 1 - Build hash->id mapping (zero-copy): {:?} ({} unique nodes)", step1_time, id_to_fact_ref.len());
 
-    // Step 2: Build adjacency list using hash lookups
     let step2_start = Instant::now();
     let mut adj_list: Vec<Vec<u32>> = vec![Vec::new(); id_to_fact_ref.len()];
     for fact in &deps_facts {
@@ -101,7 +99,6 @@ fn main() {
     let top_target_hash = xxh3_64(top_target.as_bytes());
     let start_id = string_to_id[&top_target_hash];
 
-    // Step 3: BFS with bit vector
     let step3_start = Instant::now();
     let mut visited: Vec<bool> = vec![false; id_to_fact_ref.len()];
     let mut queue: VecDeque<u32> = VecDeque::new();
@@ -122,7 +119,6 @@ fn main() {
     let step3_time = step3_start.elapsed();
     println!("Step 3 - BFS traversal: {:?} ({} reachable)", step3_time, reachable_ids.len());
 
-    // Step 4: Build result Facts by looking up strings from fact vector
     let step4_start = Instant::now();
     let head_name = "transitive_deps".to_string();
     let start_value = Value::String(top_target.clone());

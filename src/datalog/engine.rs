@@ -2678,7 +2678,7 @@ deps(X, Y) :- depends_on(X, Y).
             ],
         ));
 
-        // Add rule that makes target depend on alias
+        // make target depend on alias
         db.compile_rule(Rule::new(
             Predicate {
                 name: "target".to_string(),
@@ -2765,7 +2765,6 @@ deps(X, Y) :- depends_on(X, Y).
             ],
         ));
 
-        // Query paths from 'a'
         let results = engine.query("path", &[Some("a")]);
 
         // Should find: path(a,b), path(a,c), path(b,c)
@@ -2819,7 +2818,6 @@ deps(X, Y) :- depends_on(X, Y).
             }],
         });
 
-        // Query to trigger index build
         let results_before = db.query("path", &[]);
         assert_eq!(
             results_before.len(),

@@ -14,7 +14,6 @@ fn generate_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
     let mut target_id = 0;
     let mut all_targets = Vec::new();
 
-    // Utils
     let utils_start = target_id;
     for _ in 0..num_utils {
         let target = format!("//utils:util{}", target_id);
@@ -23,7 +22,6 @@ fn generate_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
     }
     let utils_end = target_id;
 
-    // Libs
     let libs_start = target_id;
     for _ in 0..num_libs {
         let target = format!("//lib:lib{}", target_id);
@@ -43,7 +41,6 @@ fn generate_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
     }
     let libs_end = target_id;
 
-    // Services
     let services_start = target_id;
     for _ in 0..num_services {
         let target = format!("//service:svc{}", target_id);
@@ -63,7 +60,6 @@ fn generate_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
     }
     let services_end = target_id;
 
-    // Apps
     for _ in 0..num_apps {
         let target = format!("//app:app{}", target_id);
         let num_deps = 8 + (target_id * 7) % 8;
@@ -85,7 +81,6 @@ fn generate_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
         target_id += 1;
     }
 
-    // TC rules
     rules.push(Rule {
         head: Predicate {
             name: "transitive_deps".to_string(),

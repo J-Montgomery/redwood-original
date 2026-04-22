@@ -5,12 +5,12 @@ use std::time::Instant;
 // Generate a realistic build graph similar to real repos:
 // - Wide and shallow (not deep chains)
 // - Each target depends on 5-15 libraries
-// - Organize into layers: app -> services -> libs -> utils
+// - Organized into layers: app -> services -> libs -> utils
 fn generate_realistic_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
     let mut facts = Vec::new();
     let mut rules = Vec::new();
 
-    // Layer sizes (roughly following 80/20 distribution)
+    // Layer sizes following 80/20 distribution
     let num_apps = num_targets / 20;
     let num_services = num_targets / 10;
     let num_libs = num_targets / 2;
@@ -19,7 +19,6 @@ fn generate_realistic_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
     let mut target_id = 0;
     let mut all_targets = Vec::new();
 
-    // Utils layer (leaf nodes, no dependencies)
     let utils_start = target_id;
     for _ in 0..num_utils {
         let target = format!("//utils:util{}", target_id);
@@ -39,7 +38,6 @@ fn generate_realistic_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
     }
     let utils_end = target_id;
 
-    // Libs layer (depends on 3-8 utils)
     let libs_start = target_id;
     for _ in 0..num_libs {
         let target = format!("//lib:lib{}", target_id);
@@ -55,7 +53,6 @@ fn generate_realistic_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
             ],
         });
 
-        // Depend on 3-8 random utils
         let num_deps = 3 + (target_id * 7) % 6;
         for j in 0..num_deps {
             let dep_idx = utils_start + ((target_id * 13 + j * 17) % (utils_end - utils_start));
@@ -73,7 +70,6 @@ fn generate_realistic_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
     }
     let libs_end = target_id;
 
-    // Services layer (depends on 5-12 libs)
     let services_start = target_id;
     for _ in 0..num_services {
         let target = format!("//service:svc{}", target_id);
@@ -89,7 +85,6 @@ fn generate_realistic_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
             ],
         });
 
-        // Depend on 5-12 random libs
         let num_deps = 5 + (target_id * 11) % 8;
         for j in 0..num_deps {
             let dep_idx = libs_start + ((target_id * 19 + j * 23) % (libs_end - libs_start));
@@ -107,7 +102,6 @@ fn generate_realistic_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
     }
     let services_end = target_id;
 
-    // Apps layer (depends on 8-15 services/libs)
     for _ in 0..num_apps {
         let target = format!("//app:app{}", target_id);
         facts.push(Fact {
@@ -122,14 +116,11 @@ fn generate_realistic_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
             ],
         });
 
-        // Depend on 8-15 services and libs
         let num_deps = 8 + (target_id * 7) % 8;
         for j in 0..num_deps {
             let dep_idx = if j % 3 == 0 {
-                // Sometimes depend on services
                 services_start + ((target_id * 29 + j * 31) % (services_end - services_start))
             } else {
-                // Usually depend on libs
                 libs_start + ((target_id * 37 + j * 41) % (libs_end - libs_start))
             };
             facts.push(Fact {
@@ -145,7 +136,6 @@ fn generate_realistic_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>) {
         target_id += 1;
     }
 
-    // Add transitive closure rules
     rules.push(Rule {
         head: Predicate {
             name: "transitive_deps".to_string(),

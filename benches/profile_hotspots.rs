@@ -107,19 +107,16 @@ fn main() {
 
     let mut db = Engine::new();
 
-    // Profile insert
     let start = Instant::now();
     db.insert_facts(facts);
     println!("Insert: {:?}", start.elapsed());
 
-    // Profile compile
     let start = Instant::now();
     for rule in rules {
         db.compile_rule(rule);
     }
     println!("Compile: {:?}", start.elapsed());
 
-    // Profile multiple queries to warm cache and measure steady state
     let top_target = format!(
         "//layer{}:target{}",
         ((num_targets as f64).log2().ceil() as usize) - 1,
@@ -128,17 +125,14 @@ fn main() {
 
     println!("\nQuery profiling (target: {}):", top_target);
 
-    // First query (cold)
     let start = Instant::now();
     let results = db.query("transitive_deps", &[Some(&top_target), None]);
     println!("  Query 1 (cold): {:?} ({} results)", start.elapsed(), results.len());
 
-    // Second query (should hit cache)
     let start = Instant::now();
     let results = db.query("transitive_deps", &[Some(&top_target), None]);
     println!("  Query 2 (warm): {:?} ({} results)", start.elapsed(), results.len());
 
-    // Query different target
     let mid_target = format!(
         "//layer{}:target{}",
         ((num_targets as f64).log2().ceil() as usize) / 2,
@@ -148,7 +142,6 @@ fn main() {
     let results = db.query("transitive_deps", &[Some(&mid_target), None]);
     println!("  Query 3 (mid, cold): {:?} ({} results)", start.elapsed(), results.len());
 
-    // Multiple small queries
     println!("\n10 small queries:");
     let start = Instant::now();
     for i in 0..10 {
@@ -157,7 +150,6 @@ fn main() {
     }
     println!("  Total: {:?}", start.elapsed());
 
-    // Profile base fact queries
     println!("\nBase fact queries:");
     let start = Instant::now();
     for _ in 0..100 {

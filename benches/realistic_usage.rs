@@ -15,7 +15,6 @@ fn generate_realistic_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>, Vec<St
     let mut all_targets = Vec::new();
     let mut app_targets = Vec::new();
 
-    // Utils layer
     let utils_start = target_id;
     for _ in 0..num_utils {
         let target = format!("//utils:util{}", target_id);
@@ -28,7 +27,6 @@ fn generate_realistic_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>, Vec<St
     }
     let utils_end = target_id;
 
-    // Libs layer
     let libs_start = target_id;
     for _ in 0..num_libs {
         let target = format!("//lib:lib{}", target_id);
@@ -54,7 +52,6 @@ fn generate_realistic_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>, Vec<St
     }
     let libs_end = target_id;
 
-    // Services layer
     let services_start = target_id;
     for _ in 0..num_services {
         let target = format!("//service:svc{}", target_id);
@@ -80,7 +77,6 @@ fn generate_realistic_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>, Vec<St
     }
     let services_end = target_id;
 
-    // Apps layer
     for _ in 0..num_apps {
         let target = format!("//app:app{}", target_id);
         facts.push(Fact {
@@ -109,7 +105,6 @@ fn generate_realistic_graph(num_targets: usize) -> (Vec<Fact>, Vec<Rule>, Vec<St
         target_id += 1;
     }
 
-    // Transitive closure rules
     rules.push(Rule {
         head: Predicate {
             name: "transitive_deps".to_string(),
@@ -186,8 +181,6 @@ fn main() {
 
     let setup_time = total_start.elapsed();
     println!("Total setup: {:?}\n", setup_time);
-
-    // Typical usage: Build one target (query its transitive deps)
     println!("--- Single Target Build (LAZY) ---");
     let target = &app_targets[app_targets.len() / 2]; // Middle app
 
@@ -200,7 +193,6 @@ fn main() {
     println!("  Results: {} transitive deps", results.len());
     println!("  Total (setup + query): {:?}", setup_time + query_time);
 
-    // Compare to eager (full TC)
     println!("\n--- Full TC Computation (EAGER) ---");
     let mut db2 = Engine::new();
     db2.insert_facts(generate_realistic_graph(scale).0);

@@ -54,7 +54,6 @@ fn main() {
     let deps_facts = generate_layered_graph(scale);
     println!("Generated {} edge facts", deps_facts.len());
 
-    // Build string->index mapping for integer-based BFS
     let mut string_to_id: HashMap<String, u32> = HashMap::new();
     let mut id_to_string: Vec<String> = Vec::new();
 
@@ -72,7 +71,6 @@ fn main() {
     }
     println!("Unique nodes: {}", id_to_string.len());
 
-    // Build adjacency list with integer IDs
     let mut adj_list: Vec<Vec<u32>> = vec![Vec::new(); id_to_string.len()];
     for fact in &deps_facts {
         if let (Value::String(src), Value::String(dst)) = (&fact.args[0], &fact.args[1]) {
@@ -82,7 +80,6 @@ fn main() {
         }
     }
 
-    // Build string-based index
     let mut string_index: HashMap<String, Vec<usize>> = HashMap::new();
     for (i, fact) in deps_facts.iter().enumerate() {
         if let Value::String(src) = &fact.args[0] {
@@ -98,7 +95,6 @@ fn main() {
     let start_id = string_to_id[&top_target];
     let start_value = Value::String(top_target.clone());
 
-    // Variant 1: Current implementation (HashSet<&Value>)
     let start = Instant::now();
     let mut visited1: HashSet<&Value> = HashSet::new();
     let mut queue1: VecDeque<&Value> = VecDeque::new();
@@ -120,7 +116,6 @@ fn main() {
     let time1 = start.elapsed();
     println!("\n1. HashSet<&Value> + string index: {:?} ({} nodes)", time1, visited1.len());
 
-    // Variant 2: Integer IDs with HashSet<u32>
     let start = Instant::now();
     let mut visited2: HashSet<u32> = HashSet::new();
     let mut queue2: VecDeque<u32> = VecDeque::new();
@@ -137,7 +132,6 @@ fn main() {
     let time2 = start.elapsed();
     println!("2. HashSet<u32> + adjacency list:  {:?} ({} nodes)", time2, visited2.len());
 
-    // Variant 3: Bit vector for visited (fastest possible)
     let start = Instant::now();
     let mut visited3: Vec<bool> = vec![false; id_to_string.len()];
     let mut queue3: VecDeque<u32> = VecDeque::new();
@@ -157,7 +151,6 @@ fn main() {
     let time3 = start.elapsed();
     println!("3. Vec<bool> + adjacency list:     {:?} ({} nodes)", time3, count3);
 
-    // Variant 4: Pre-sized HashSet with capacity
     let start = Instant::now();
     let mut visited4: HashSet<u32> = HashSet::with_capacity(500_000);
     let mut queue4: VecDeque<u32> = VecDeque::with_capacity(100_000);
