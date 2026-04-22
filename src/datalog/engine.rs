@@ -15,8 +15,7 @@ pub type ResolveCallback = Box<dyn Fn(&str, &str, &[String]) -> Result<Vec<u8>, 
 /// An iterator that lazily computes transitive closure results.
 ///
 /// This iterator performs BFS incrementally, yielding results one at a time
-/// instead of materializing all results upfront. This is particularly efficient
-/// when you only need a subset of the results or want to process them incrementally.
+/// instead of materializing all results upfront.
 pub struct TcIterator {
     head_name: String,
     start_node: Value,
@@ -31,12 +30,10 @@ impl Iterator for TcIterator {
     type Item = Rc<Fact>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // Return any pending results first
         if let Some(result) = self.pending_results.pop() {
             return Some(result);
         }
 
-        // Process BFS until we have results to yield
         while let Some(node) = self.queue.pop_front() {
             if let Value::String(node_str) = &node {
                 if let Some(indices) = self.index.get(node_str) {
@@ -54,7 +51,6 @@ impl Iterator for TcIterator {
                         }
                     }
 
-                    // After processing this node, return the first result
                     if let Some(result) = self.pending_results.pop() {
                         return Some(result);
                     }
@@ -68,7 +64,7 @@ impl Iterator for TcIterator {
 /// Adjacency list for fast TC traversal, built from edge facts without cloning strings.
 /// Instead of storing strings, we store indices into the fact vector.
 struct TcAdjList {
-    string_to_id: HashMap<u64, u32>,  // xxhash of string -> node id
+    string_to_id: HashMap<u64, u32>,  // hash(string) -> node id
     id_to_fact_ref: Vec<(usize, u8)>, // (fact_idx, arg_pos 0 or 1) for each node id
     adjacency: Vec<Vec<u32>>,         // node_id -> vec of neighbor node_ids
 }
@@ -84,7 +80,7 @@ pub struct Engine {
     source_locations: HashMap<String, SourceLocation>,
     stratification_validated: bool,
 
-    // For fast TC traversal - built lazily per predicate
+    // Lazily initialized
     tc_adj_lists: HashMap<String, TcAdjList>,
 }
 
@@ -532,12 +528,11 @@ impl Engine {
         }
 
         // Retain TC cache entries where BOTH the predicate is NOT invalidated AND the source is NOT affected.
-        // We want to remove entries if either condition is true: predicate invalidated OR source affected.
+        // We want to remove entries if either predicate invalidated OR source affected.
         self.tc_cache.retain(|(pred, source), _| {
             !to_invalidate.contains(pred) && !affected_sources.contains(source)
         });
 
-        // Invalidate TC adjacency lists for affected predicates
         for pred in &to_invalidate {
             self.tc_adj_lists.remove(pred);
         }
@@ -590,7 +585,6 @@ impl Engine {
             self.evaluate_predicate(predicate)
         };
 
-        // Add base facts, filtered if necessary to avoid duplicates
         if let Some((fact_vec, idx_ptr)) = self.base_facts.get(predicate) {
             let first_filter = filters.first().and_then(|f| f.as_ref());
             let idx = idx_ptr.and_then(|i| {
@@ -602,7 +596,6 @@ impl Engine {
             });
 
             let base_facts: Vec<Rc<Fact>> = if let (Some(idx), Some(filter)) = (idx, first_filter) {
-                // Use index to get only matching base facts
                 let (index_cell, _) = &self.indices[idx];
                 Self::build_index_if_needed(fact_vec, index_cell);
                 let index_ref = index_cell.borrow();
@@ -616,7 +609,6 @@ impl Engine {
                     Vec::new()
                 }
             } else {
-                // No filters, get all base facts
                 fact_vec.iter().map(Rc::clone).collect()
             };
 
@@ -627,9 +619,8 @@ impl Engine {
             self.computed.insert(predicate.to_string(), results.clone());
         }
 
-        // Deduplicate results to avoid returning duplicate facts
-        // This can happen when multiple rules derive the same fact or when
-        // a fact is both a base fact and derived by rules
+        // Duplicates can occur from multiple rules deriving the same fact or if
+        // a fact is both a base fact and derivable by rules
         let mut seen: std::collections::HashSet<Rc<Fact>> = std::collections::HashSet::new();
         results.retain(|rc| seen.insert(Rc::clone(rc)));
 
@@ -716,12 +707,10 @@ impl Engine {
             return;
         };
 
-        // Pre-allocate with expected capacity
         let capacity = fact_vec.len();
         let mut string_to_id: HashMap<u64, u32> = HashMap::with_capacity(capacity);
         let mut id_to_fact_ref: Vec<(usize, u8)> = Vec::with_capacity(capacity);
 
-        // First pass: assign IDs to all strings using xxhash, no cloning
         for (fact_idx, fact) in fact_vec.iter().enumerate() {
             if fact.args.len() >= 2 {
                 if let (Value::String(src), Value::String(dst)) = (&fact.args[0], &fact.args[1]) {
@@ -739,7 +728,6 @@ impl Engine {
             }
         }
 
-        // Second pass: build adjacency list using hash lookups
         let mut adjacency: Vec<Vec<u32>> = vec![Vec::new(); id_to_fact_ref.len()];
         for fact in fact_vec {
             if fact.args.len() >= 2 {
@@ -769,7 +757,6 @@ impl Engine {
         edge_pred_name: &str,
         start_node: &Value,
     ) -> Vec<Rc<Fact>> {
-        // Build adjacency list if needed
         self.ensure_tc_adj_list(edge_pred_name);
 
         let Value::String(start_str) = start_node else {
@@ -780,18 +767,16 @@ impl Engine {
             return Vec::new();
         };
 
-        // Look up start node by hash
         let start_hash = xxh3_64(start_str.as_bytes());
         let Some(&start_id) = tc_adj_list.string_to_id.get(&start_hash) else {
             return Vec::new();
         };
 
-        // Get reference to fact_vec for string lookups
         let Some((fact_vec, _)) = self.base_facts.get(edge_pred_name) else {
             return Vec::new();
         };
 
-        // BFS with bit vector
+        // BFS
         let mut visited: Vec<bool> = vec![false; tc_adj_list.id_to_fact_ref.len()];
         let mut queue: std::collections::VecDeque<u32> = std::collections::VecDeque::new();
         queue.push_back(start_id);
@@ -809,7 +794,6 @@ impl Engine {
             }
         }
 
-        // Build results by looking up strings from fact vector
         let head_name_owned = head_name.to_string();
         let mut results = Vec::with_capacity(reachable_ids.len());
 
@@ -1303,7 +1287,7 @@ impl Engine {
             return vec![];
         };
 
-        // First check existing file_exists facts
+        // Check the cache of file_exists facts 
         let mut results: Vec<Arc<HashMap<String, Value>>> = self
             .get_all_facts("file_exists")
             .iter()
@@ -1320,17 +1304,15 @@ impl Engine {
             })
             .collect();
 
-        // If no matches found, scan the filesystem with glob
+        // If not in cache, scan the filesystem
         if results.is_empty() {
             if let Ok(paths) = glob::glob(pattern) {
                 for path_result in paths.flatten() {
                     if let Some(path_str) = path_result.to_str() {
-                        // Add to file_exists facts for future queries
                         self.insert_facts(vec![Fact {
                             predicate: "file_exists".to_string(),
                             args: vec![Value::String(path_str.to_string())],
                         }]);
-                        // Add to results
                         let mut new_binding = Arc::clone(binding);
                         Arc::make_mut(&mut new_binding)
                             .insert(file_var.clone(), Value::String(path_str.to_string()));
@@ -1599,10 +1581,9 @@ impl Engine {
     }
 
     // Resolve a target by executing a tool with arguments specified in base attr facts.
-    // IMPORTANT: This function ONLY uses base attr facts, NOT derived facts from rules.
-    // This ensures resolve() is total (no infinite loops) and predictable.
-    // If you need attrs derived from rules, ensure those attrs are computed and inserted
-    // as base facts BEFORE calling resolve().
+    // This function ONLY uses base attr facts, NOT derived facts from rules to ensure
+    // resolve() is total (no infinite loops) and predictable. If you need attrs derived
+    // from rules, ensure those attrs are computed and inserted as base facts first.
     fn resolve_target(&mut self, target: &str) -> Vec<String> {
         if let Some(cached) = self.resolve_cache.get(target) {
             return cached.clone();
@@ -1613,7 +1594,6 @@ impl Engine {
             return vec![];
         }
 
-        // Query only base attr facts - this prevents stack overflow from recursive rule evaluation
         let attr_facts = self.query_base_facts("attr", &[Some(target)]);
 
         let mut tool = None;
@@ -1926,11 +1906,10 @@ impl Engine {
 
         let all_facts = self.get_all_facts("source_location");
 
-        // Pre-filter facts based on constant arguments for efficiency
+        // Optimize by pre-filtering facts with constant args
         let facts: Vec<_> = all_facts
             .into_iter()
             .filter(|rc_fact| {
-                // Check each constant argument
                 for (i, term) in predicate.args.iter().enumerate() {
                     if let Term::Constant(const_val) = term {
                         if i >= rc_fact.args.len() || &rc_fact.args[i] != const_val {
@@ -2125,7 +2104,7 @@ impl Engine {
 
         let mut all_facts: HashMap<String, Vec<Rc<Fact>>> = HashMap::new();
         for pred in &referenced_predicates {
-            // First check if already computed
+            // Check if already computed
             if let Some(computed_facts) = self.computed.get(pred) {
                 all_facts.insert(pred.clone(), computed_facts.iter().map(Rc::clone).collect());
             } else if let Some((fact_vec, _)) = self.base_facts.get(pred) {
@@ -2135,7 +2114,6 @@ impl Engine {
             }
         }
 
-        // Create HashSet for O(1) membership checks
         let mut all_facts_set: HashMap<String, HashSet<Rc<Fact>>> = HashMap::new();
         for pred in &referenced_predicates {
             let facts = all_facts.get(pred).unwrap();
@@ -2252,7 +2230,6 @@ impl Engine {
         delta: &HashMap<String, Vec<Rc<Fact>>>,
         pred_set: &std::collections::HashSet<String>,
     ) -> Vec<Rc<Fact>> {
-        // Collect indices of SCC predicates in the rule body
         let scc_predicate_indices: Vec<usize> = rule
             .body
             .iter()
@@ -2271,7 +2248,7 @@ impl Engine {
             return self.evaluate_rule_with_facts(rule, all_facts);
         }
 
-        // Generate N variants: one for each SCC predicate using delta
+        // Generate a variant for each SCC predicate using delta
         let mut all_results = Vec::new();
         let mut seen = std::collections::HashSet::new();
 
@@ -2307,7 +2284,6 @@ impl Engine {
                 }
             }
 
-            // Collect results from this variant, deduplicating within this call
             for binding in bindings {
                 let args = project_to_head(&rule.head.args, &binding);
                 let fact = Fact::new(&rule.head.name, args);
@@ -2401,7 +2377,6 @@ fn try_extend_binding(
     let mut needs_modification = false;
     let mut temp_bindings = HashMap::new();
 
-    // First pass: check compatibility and determine if we need to modify
     for (i, term) in pattern.iter().enumerate() {
         if i >= values.len() {
             if let Term::Variable(var) = term {
@@ -2420,12 +2395,10 @@ fn try_extend_binding(
                         return None;
                     }
                 } else if let Some(temp_value) = temp_bindings.get(var) {
-                    // Variable seen earlier in this pattern
                     if temp_value != value {
                         return None;
                     }
                 } else {
-                    // New binding
                     temp_bindings.insert(var.clone(), value.clone());
                     needs_modification = true;
                 }
@@ -2438,7 +2411,7 @@ fn try_extend_binding(
         }
     }
 
-    // Only clone the HashMap if we need to modify it
+    // This clones HashMap to create a mut pointer
     if needs_modification {
         let binding_mut = Arc::make_mut(&mut binding);
         for (var, value) in temp_bindings {
@@ -2674,13 +2647,11 @@ deps(X, Y) :- depends_on(X, Y).
     fn detect_scc_returns_correct_component() {
         let mut db = Engine::new();
 
-        // Set up base facts
         db.insert_facts(vec![Fact::new(
             "target",
             vec![Value::String("//app:main".to_string())],
         )]);
 
-        // Add transitive alias rule (makes alias recursive with itself)
         db.compile_rule(Rule::new(
             Predicate {
                 name: "alias".to_string(),
@@ -2708,7 +2679,6 @@ deps(X, Y) :- depends_on(X, Y).
         ));
 
         // Add rule that makes target depend on alias
-        // This would trigger the SCC bug: detect_scc("target") would return ["alias"]
         db.compile_rule(Rule::new(
             Predicate {
                 name: "target".to_string(),
@@ -2729,9 +2699,6 @@ deps(X, Y) :- depends_on(X, Y).
             ],
         ));
 
-        // Query target - this should return the base fact
-        // With the bug, detect_scc("target") would return ["alias"] instead of ["target"],
-        // causing evaluate_fixpoint to compute alias instead of target, losing base facts
         let results = db.query("target", &[]);
 
         assert_eq!(results.len(), 1, "Should preserve base target fact");
@@ -2742,7 +2709,6 @@ deps(X, Y) :- depends_on(X, Y).
     fn test_semi_naive_multi_predicate_scc() {
         let mut engine = Engine::new();
 
-        // Simple test: ensure the fix doesn't break existing functionality
         engine.insert_facts(vec![
             Fact::new(
                 "edge",
@@ -2820,7 +2786,6 @@ deps(X, Y) :- depends_on(X, Y).
     fn test_index_consistency_after_insert_retract() {
         let mut db = Engine::new();
 
-        // Insert initial facts
         let fact1 = Fact {
             predicate: "edge".to_string(),
             args: vec![
@@ -2837,7 +2802,6 @@ deps(X, Y) :- depends_on(X, Y).
         };
         db.insert_facts(vec![fact1.clone(), fact2.clone()]);
 
-        // Compile a rule that uses the indexed predicate
         db.compile_rule(Rule {
             head: Predicate {
                 name: "path".to_string(),
@@ -2863,7 +2827,6 @@ deps(X, Y) :- depends_on(X, Y).
             "Should have 2 path facts initially"
         );
 
-        // Insert a new fact (this should invalidate indices consistently)
         let fact3 = Fact {
             predicate: "edge".to_string(),
             args: vec![
@@ -2873,7 +2836,6 @@ deps(X, Y) :- depends_on(X, Y).
         };
         db.insert_facts(vec![fact3.clone()]);
 
-        // Query again - both indices should be consistent
         let results_after_insert = db.query("path", &[]);
         assert_eq!(
             results_after_insert.len(),
@@ -2881,10 +2843,8 @@ deps(X, Y) :- depends_on(X, Y).
             "Should have 3 path facts after insert"
         );
 
-        // Retract a fact (this should also maintain index consistency)
         db.retract_facts(vec![fact2]);
 
-        // Final query - indices should still be consistent
         let results_after_retract = db.query("path", &[]);
         assert_eq!(
             results_after_retract.len(),
@@ -2892,7 +2852,6 @@ deps(X, Y) :- depends_on(X, Y).
             "Should have 2 path facts after retract"
         );
 
-        // Verify the remaining facts are correct
         let has_a_b = results_after_retract
             .iter()
             .any(|f| f.args == vec![Value::String("a".into()), Value::String("b".into())]);
@@ -2912,7 +2871,6 @@ deps(X, Y) :- depends_on(X, Y).
     fn test_lazy_tc_iterator() {
         let mut db = Engine::new();
 
-        // Insert edge facts
         db.insert_facts(vec![
             Fact {
                 predicate: "edge".to_string(),
@@ -2928,7 +2886,6 @@ deps(X, Y) :- depends_on(X, Y).
             },
         ]);
 
-        // Define transitive closure rules
         db.compile_rule(Rule {
             head: Predicate {
                 name: "path".to_string(),
@@ -2957,7 +2914,6 @@ deps(X, Y) :- depends_on(X, Y).
             ],
         });
 
-        // Test the lazy iterator
         let iter = db.query_tc_iter("path", "a");
         let results: Vec<_> = iter.collect();
 
@@ -2976,7 +2932,6 @@ deps(X, Y) :- depends_on(X, Y).
         assert!(result_set.contains(&Value::String("c".into())));
         assert!(result_set.contains(&Value::String("d".into())));
 
-        // Test incremental consumption
         let mut iter = db.query_tc_iter("path", "a");
         let first = iter.next();
         assert!(first.is_some(), "Should have at least one result");

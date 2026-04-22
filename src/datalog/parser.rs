@@ -69,7 +69,7 @@ pub fn parse_program_with_namespace(input: &str, filename: &str, namespace: &str
             .collect()
     };
 
-    // Build a map from position to line number for location tracking
+    // Build a map from position to line number for source_location
     let mut line_starts = vec![0];
     for (i, byte) in input.bytes().enumerate() {
         if byte == b'\n' {
@@ -79,7 +79,6 @@ pub fn parse_program_with_namespace(input: &str, filename: &str, namespace: &str
 
     let mut locations = HashMap::new();
 
-    // Target-defining predicates where we record source_location for the first argument
     let target_defining_predicates = [
         "target",
         "system_rustc",
@@ -96,13 +95,11 @@ pub fn parse_program_with_namespace(input: &str, filename: &str, namespace: &str
     // For each fact, find its location in the source
     // Only record location for the first argument of target-defining predicates
     for fact in &rewritten_facts {
-        // Skip facts that aren't target-defining predicates
         if !target_defining_predicates.contains(&fact.predicate.as_str()) {
             continue;
         }
 
         if let Some(Value::String(target)) = fact.args.first() {
-            // Skip if we've already recorded this target (keep the first occurrence)
             if locations.contains_key(target) {
                 continue;
             }
@@ -135,7 +132,6 @@ pub fn parse_program_with_namespace(input: &str, filename: &str, namespace: &str
         }
     }
 
-    // For each rule, find its location
     for rule in &rules {
         let search_str = format!("{}(", rule.head.name);
         if let Some(pos) = input.find(&search_str) {
@@ -180,13 +176,13 @@ fn is_target_label(s: &str) -> bool {
 }
 
 fn rewrite_target_label(label: &str, namespace: &str) -> String {
-    // If already fully qualified (contains multiple //), don't rewrite
+    // Skip fully qualified labels
     if label.matches("//").count() > 1 {
         return label.to_string();
     }
 
-    // Check if this is a package-local label (starts with "//:")
-    // For recursive builds: "//:target" in //pkg1 becomes "//pkg1:target"
+    // Check if this is a package-local label
+    // "//:target" in //pkg1 becomes "//pkg1:target"
     if let Some(target_name) = label.strip_prefix("//:") {
         return format!("{}:{}", namespace, target_name);
     }
@@ -198,11 +194,11 @@ fn rewrite_target_label(label: &str, namespace: &str) -> String {
     let is_external_namespace = ns_path.contains('/');
 
     if is_external_namespace {
-        // For external namespaces: "//foo:bar" → "//external/boost//foo:bar"
+        // "//foo:bar" -> "//external/boost//foo:bar"
         format!("{}{}", namespace, label)
     } else {
         // For package namespaces: "//other:target" stays as "//other:target"
-        // Only package-local labels (//:target) are rewritten (handled above)
+        // Only package-local labels (//:target) are rewritten
         label.to_string()
     }
 }
@@ -458,13 +454,10 @@ fn tokenize(input: &str) -> Vec<Token<'_>> {
                 i += 1;
                 let start = i;
 
-                // Fast path: scan for escape sequences
                 let mut end = i;
                 while end < bytes.len() && bytes[end] != b'"' {
                     if bytes[end] == b'\\' {
-                        // Found escape - process from here
                         let mut string_content = String::with_capacity(end - i + 16);
-                        // Copy prefix before first escape
                         string_content.push_str(&input[i..end]);
                         i = end;
 
@@ -496,7 +489,6 @@ fn tokenize(input: &str) -> Vec<Token<'_>> {
                     end += 1;
                 }
 
-                // No escapes found - use zero-copy
                 tokens.push(Token::String(&input[start..end]));
                 i = end + 1;
             }
@@ -732,9 +724,6 @@ mod tests {
 
     #[test]
     fn parse_program_with_file_handles_multiline_rules() {
-        // This test verifies the fix for the bug where parse_program_with_file
-        // was processing line-by-line and incorrectly creating facts from
-        // parts of multi-line rules
         let input = r#"
 # Comment line
 target("//a").
@@ -749,12 +738,10 @@ another_fact("//b").
 
         let (facts, rules, locations) = parse_program_with_file(input, "test.datalog").unwrap();
 
-        // Should have 2 facts, not 3 (the bug would create needs_rebuild("Dep") as a fact)
         assert_eq!(facts.len(), 2, "Should have exactly 2 facts");
         assert_eq!(facts[0].predicate, "target");
         assert_eq!(facts[1].predicate, "another_fact");
 
-        // Verify no spurious "Dep" fact was created
         for fact in &facts {
             for arg in &fact.args {
                 if let Value::String(s) = arg {
@@ -766,7 +753,6 @@ another_fact("//b").
             }
         }
 
-        // Should have 1 rule with 2 body predicates
         assert_eq!(rules.len(), 1, "Should have exactly 1 rule");
         assert_eq!(rules[0].head.name, "needs_rebuild");
         assert_eq!(
@@ -777,7 +763,6 @@ another_fact("//b").
         assert_eq!(rules[0].body[0].name, "deps");
         assert_eq!(rules[0].body[1].name, "needs_rebuild");
 
-        // Verify locations were tracked
         assert!(!locations.is_empty(), "Should track source locations");
     }
 
@@ -824,11 +809,9 @@ my_rule(X) :- target(X).
         assert_eq!(facts.len(), 2);
         assert_eq!(rules.len(), 1);
 
-        // Check that each target is tracked with the correct line number
         assert_eq!(locations.get("//first").unwrap().line, 2);
         assert_eq!(locations.get("//second").unwrap().line, 3);
 
-        // Check that the rule is tracked
         assert_eq!(locations.get("my_rule").unwrap().line, 6);
     }
 
@@ -875,9 +858,9 @@ target("//app:main").
 
     #[test]
     fn parse_program_with_file_alias_handles_target_references_correctly() {
-        // Test for the alias bug: when a target appears as both the second argument
-        // of an alias and as the first argument of another predicate, the parser
-        // should record the location where the target is actually defined, not where
+        // When a target appears as both the second argument of an alias and
+        // as the first argument of another predicate, the parser should record
+        // the location where the target is actually defined, not where
         // it's referenced in the alias
         let input = r#"# Test file
 alias("//bootstrap:redwood", "//bootstrap:bin").
@@ -887,11 +870,7 @@ crate_name("//bootstrap:bin", "redwood").
 
         let (_facts, _rules, locations) = parse_program_with_file(input, "BUILD.datalog").unwrap();
 
-        // The alias target should be on line 2 (where alias is defined)
         assert_eq!(locations.get("//bootstrap:redwood").unwrap().line, 2);
-
-        // The actual target should be on line 3 (where system_rustc is defined),
-        // NOT line 2 (where it appears as second argument of alias)
         assert_eq!(locations.get("//bootstrap:bin").unwrap().line, 3);
     }
 }
