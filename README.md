@@ -393,25 +393,3 @@ target/release/redwood build //redwood:redwood
 ```
 
 Verified through 3-generation cycle (gen1 == gen2).
-
-## Status
-
-Phase 1 MVP complete:
-
-- Datalog parser with rules and negation
-- Rule evaluation via joins and filters
-- Lazy filesystem scanning (checks only target-relevant files)
-- Incremental builds with content-based caching
-- Toolchain discovery and resolution
-- Self-hosting build
-- Build kind: system_tool (generic tool invocation)
-- Prelude helpers: cargo_binary, system_cc, system_cxx, system_go, etc.
-- Helpers automatically derive target/kind/attr facts
-- Constraint checking in datalog
-- Attribute-driven tool invocation with three scopes (target, tool, target:tool)
-- Template expansion for {output}, {sources}, {target}
-- HashMap-based evaluation optimized for build workloads
-- Dependency-ordered builds (topological sort)
-- Smart cache invalidation
-
-See [SPEC.md](SPEC.md) for architecture details and [CRITIQUE.md](CRITIQUE.md) for what needs work.
