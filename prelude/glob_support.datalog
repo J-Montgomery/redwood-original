@@ -1,0 +1,8 @@
+# Glob pattern support for source file matching
+
+# Derive sources from glob patterns using bidirectional matching
+# Usage: source_glob(Target, "src/**/*.rs")
+# The matches_glob built-in checks if File matches Pattern
+sources(Target, File) :-
+    source_glob(Target, Pattern),
+    matches_glob(File, Pattern).

@@ -1,0 +1,4 @@
+# Transitive dependency resolution
+
+transitive_deps(X, Y) :- deps(X, Y).
+transitive_deps(X, Z) :- deps(X, Y), transitive_deps(Y, Z).

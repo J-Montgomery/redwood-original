@@ -1,0 +1,73 @@
+# Redwood Build System - Self-build definition
+
+# ============================================================================
+# Cargo build
+# ============================================================================
+
+cargo_binary("//redwood:redwood").
+license("//redwood:redwood", "MIT").
+
+cargo_binary("//redwood:fake_tool").
+license("//redwood:fake_tool", "MIT").
+
+# ============================================================================
+# Bootstrap build rules for rustc
+# ============================================================================
+
+target("//tool:cargo_list_crates").
+kind("//tool:cargo_list_crates", system_tool).
+attr("//tool:cargo_list_crates", "tool", "bash").
+attr("//tool:cargo_list_crates", "0", "-c").
+attr("//tool:cargo_list_crates", "1",
+    "cargo tree --edges normal --prefix none -e normal | grep -v '(' | awk '{print $1}' | sort -u | sed 's/-/_/g'").
+
+target("//tool:cargo_direct_deps").
+kind("//tool:cargo_direct_deps", system_tool).
+attr("//tool:cargo_direct_deps", "tool", "bash").
+attr("//tool:cargo_direct_deps", "0", "-c").
+attr("//tool:cargo_direct_deps", "1",
+    "cargo metadata --format-version 1 --no-deps 2>/dev/null | jq -r '.packages[0].dependencies[] | select(.kind == null or .kind == \"normal\") | .name' | sed 's/-/_/g'").
+
+direct_dependency(Name) :-
+    resolve("//tool:cargo_direct_deps", Name).
+
+external_crate(Name) :- direct_dependency(Name).
+
+system_rustc("//bootstrap:lib").
+crate_name("//bootstrap:lib", "redwood").
+primary_source("//bootstrap:lib", "src/lib.rs").
+sources("//bootstrap:lib", "src/lib.rs").
+license("//bootstrap:lib", "MIT").
+
+# Auto-generate deps from direct_dependency facts
+deps("//bootstrap:lib", ExtTarget) :-
+    direct_dependency(Name),
+    concat("//external:", Name, ExtTarget).
+
+alias("//bootstrap:redwood", "//bootstrap:bin").
+system_rustc("//bootstrap:bin").
+crate_name("//bootstrap:bin", "redwood").
+primary_source("//bootstrap:bin", "src/main.rs").
+sources("//bootstrap:bin", "src/main.rs").
+deps("//bootstrap:bin", "//bootstrap:lib").
+deps("//bootstrap:bin", "//external:clap").
+license("//bootstrap:bin", "MIT").
+
+target_path("//src/datalog:datalog", "src/datalog").
+target_path("//src/runtime:runtime", "src/runtime").
+target_path("//src/cache:cache", "src/cache").
+target_path("//src/format:format", "src/format").
+target_path("//src/build:build", "src/build").
+target_path("//src/sandbox:sandbox", "src/sandbox").
+target_path("//src/cli:cli", "src/cli").
+
+# ============================================================================
+# Ownership rules for tutorial
+# ============================================================================
+
+owner("src", "core-team").
+owner("src/datalog", "datalog-expert").
+owner("src/build", "build-team").
+owner("src/runtime", "runtime-team").
+
+

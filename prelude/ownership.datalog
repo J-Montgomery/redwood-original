@@ -1,0 +1,67 @@
+# Code ownership resolution
+#
+# Usage:
+#   owner(PathPrefix, Owner) - Declare ownership by path
+#   target_path(Target, Path) - Map targets to filesystem paths
+#
+# Example:
+#   owner("src", "core-team").
+#   owner("src/datalog", "datalog-expert").
+#   target_path("//src/datalog:parser", "src/datalog").
+#
+# Resolution: Deepest matching prefix wins
+#   File at src/datalog/parser.rs → owner is "datalog-expert", not "core-team"
+
+# Find all owners whose prefix matches this target's path
+potential_reviewers(T, Owner) :-
+    target_path(T, P),
+    owner(Prefix, Owner),
+    prefix(P, Prefix).
+
+# Deepest match wins - eliminate if a longer prefix exists
+target_owner(T, Owner) :-
+    potential_reviewers(T, Owner),
+    not(has_deeper_owner(T, Owner)).
+
+has_deeper_owner(T, Owner) :-
+    potential_reviewers(T, Owner),
+    owner(Prefix1, Owner),
+    target_path(T, P),
+    prefix(P, Prefix1),
+    # There exists a longer/deeper prefix
+    owner(Prefix2, _),
+    prefix(P, Prefix2),
+    prefix(Prefix2, Prefix1),
+    Prefix2 != Prefix1.
+
+# Business rule predicates
+# Users can query different predicates for different notification policies
+
+# Direct owners: own the changed code
+direct_owner(T, Owner) :-
+    directly_changed(T),
+    target_owner(T, Owner).
+
+# Impact owners: own code that depends on changed targets
+impact_owner(T, Owner) :-
+    directly_changed(ChangedTarget),
+    deps(T, ChangedTarget),
+    target_owner(T, Owner).
+
+# Transitive impact: own code downstream of downstream dependencies
+transitive_impact_owner(T, Owner) :-
+    directly_changed(ChangedTarget),
+    transitive_deps(T, ChangedTarget),
+    target_owner(T, Owner).
+
+# Deduplication helpers
+# Datalog's set semantics naturally deduplicate, these make it explicit
+
+unique_direct_owner(Owner) :- direct_owner(_, Owner).
+unique_impact_owner(Owner) :- impact_owner(_, Owner).
+unique_transitive_owner(Owner) :- transitive_impact_owner(_, Owner).
+
+# Combined: all owners across direct and impact
+all_owners(Owner) :- direct_owner(_, Owner).
+all_owners(Owner) :- impact_owner(_, Owner).
+unique_all_owners(Owner) :- all_owners(Owner).

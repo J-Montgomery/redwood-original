@@ -1,0 +1,71 @@
+[package]
+name = "redwood"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = []
+
+[dependencies]
+clap = { version = "4.0", features = ["derive"] }
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+walkdir = "2.0"
+glob = "0.3"
+which = "6.0"
+rayon = "1.10"
+tempfile = "3.0"
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+[dev-dependencies]
+
+[[bench]]
+name = "scalability"
+harness = false
+
+[[bench]]
+name = "startup"
+harness = false
+
+[[bench]]
+name = "incremental"
+harness = false
+
+[[bench]]
+name = "query_patterns"
+harness = false
+
+[[bench]]
+name = "full_tc_small"
+harness = false
+
+[[bench]]
+name = "daemon"
+harness = false
+
+[[bench]]
+name = "parser"
+harness = false
+
+[[bench]]
+name = "profile_hotspots"
+harness = false
+
+[[bench]]
+name = "lazy_tc_benchmark"
+harness = false
+
+[[bin]]
+name = "fake_tool"
+path = "src/bin/fake_tool.rs"
+[[bench]]
+name = "tc_breakdown"
+harness = false
+[[bench]]
+name = "tc_bfs_variants"
+harness = false
+[[bench]]
+name = "tc_new_impl"
+harness = false
+[[bench]]
+name = "tc_detailed_breakdown"
+harness = false

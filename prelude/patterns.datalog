@@ -1,0 +1,5 @@
+matches_pattern(Target, Prefix) :-
+    target(Target),
+    prefix(Target, Prefix).
+
+matches_pattern(Target, Target) :- target(Target).

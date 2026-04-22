@@ -1,0 +1,9 @@
+# Package 1
+# In recursive mode, this target becomes //pkg1:lib
+target("//:lib").
+kind("//:lib", system_tool).
+attr("//:lib", "tool", "touch").
+attr("//:lib", "0", "{output}").
+deps("//:lib", "//pkg2:util").
+outputs("//:lib", "lib.out").
+license("//:lib", "MIT").

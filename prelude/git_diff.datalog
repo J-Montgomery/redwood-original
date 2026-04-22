@@ -1,0 +1,83 @@
+# Git Query Infrastructure
+# Defines resolve() targets for querying BUILD.datalog from git commits
+# Uses inline shell commands with escape sequences - no external scripts needed
+
+# Shell commands for querying git (inline with escaped characters)
+shell_command("git show HEAD~1:BUILD.datalog 2>/dev/null | grep -E '^target\\(' | sed -E 's/target\\(\"([^\"]*)\"\\).*/\\1/'").
+shell_command("git show HEAD:BUILD.datalog 2>/dev/null | grep -E '^target\\(' | sed -E 's/target\\(\"([^\"]*)\"\\).*/\\1/'").
+shell_command("git show HEAD~1:BUILD.datalog 2>/dev/null | grep -E '^deps\\(' | sed -E 's/deps\\(\"([^\"]*)\", \"([^\"]*)\"\\).*/\\1|\\2/'").
+shell_command("git show HEAD:BUILD.datalog 2>/dev/null | grep -E '^deps\\(' | sed -E 's/deps\\(\"([^\"]*)\", \"([^\"]*)\"\\).*/\\1|\\2/'").
+shell_command("git show HEAD~1:BUILD.datalog 2>/dev/null | grep -E '^sources\\(' | sed -E 's/sources\\(\"([^\"]*)\", \"([^\"]*)\"\\).*/\\1|\\2/'").
+shell_command("git show HEAD:BUILD.datalog 2>/dev/null | grep -E '^sources\\(' | sed -E 's/sources\\(\"([^\"]*)\", \"([^\"]*)\"\\).*/\\1|\\2/'").
+
+# Query predicates using shell commands
+baseline_target(T) :-
+    shell("git show HEAD~1:BUILD.datalog 2>/dev/null | grep -E '^target\\(' | sed -E 's/target\\(\"([^\"]*)\"\\).*/\\1/'", T).
+
+head_target(T) :-
+    shell("git show HEAD:BUILD.datalog 2>/dev/null | grep -E '^target\\(' | sed -E 's/target\\(\"([^\"]*)\"\\).*/\\1/'", T).
+
+baseline_deps(T, D) :-
+    shell("git show HEAD~1:BUILD.datalog 2>/dev/null | grep -E '^deps\\(' | sed -E 's/deps\\(\"([^\"]*)\", \"([^\"]*)\"\\).*/\\1|\\2/'", Line),
+    split(Line, "|", 0, T),
+    split(Line, "|", 1, D).
+
+head_deps(T, D) :-
+    shell("git show HEAD:BUILD.datalog 2>/dev/null | grep -E '^deps\\(' | sed -E 's/deps\\(\"([^\"]*)\", \"([^\"]*)\"\\).*/\\1|\\2/'", Line),
+    split(Line, "|", 0, T),
+    split(Line, "|", 1, D).
+
+baseline_sources(T, S) :-
+    shell("git show HEAD~1:BUILD.datalog 2>/dev/null | grep -E '^sources\\(' | sed -E 's/sources\\(\"([^\"]*)\", \"([^\"]*)\"\\).*/\\1|\\2/'", Line),
+    split(Line, "|", 0, T),
+    split(Line, "|", 1, S).
+
+head_sources(T, S) :-
+    shell("git show HEAD:BUILD.datalog 2>/dev/null | grep -E '^sources\\(' | sed -E 's/sources\\(\"([^\"]*)\", \"([^\"]*)\"\\).*/\\1|\\2/'", Line),
+    split(Line, "|", 0, T),
+    split(Line, "|", 1, S).
+
+# Diff Computation Rules
+# Uses stratified negation over resolved facts
+
+# Target changes
+target_added(T) :- head_target(T), not(baseline_target(T)).
+target_removed(T) :- baseline_target(T), not(head_target(T)).
+
+# Dependency changes
+deps_added(T, D) :-
+    head_deps(T, D),
+    not(baseline_deps(T, D)).
+
+deps_removed(T, D) :-
+    baseline_deps(T, D),
+    not(head_deps(T, D)).
+
+# Source changes
+sources_added(T, S) :-
+    head_sources(T, S),
+    not(baseline_sources(T, S)).
+
+sources_removed(T, S) :-
+    baseline_sources(T, S),
+    not(head_sources(T, S)).
+
+# Compute transitive deps for head
+head_transitive_deps(X, Y) :- head_deps(X, Y).
+head_transitive_deps(X, Z) :- head_deps(X, Y), head_transitive_deps(Y, Z).
+
+# Impact analysis
+directly_changed(T) :- target_added(T).
+directly_changed(T) :- sources_added(T, _).
+directly_changed(T) :- sources_removed(T, _).
+directly_changed(T) :- deps_added(T, _).
+directly_changed(T) :- deps_removed(T, _).
+
+# Transitive impact - targets that depend on changed targets
+affected_by_changes(T) :- directly_changed(T).
+affected_by_changes(T) :-
+    directly_changed(Changed),
+    head_transitive_deps(T, Changed).
+
+# Convenience: targets that need to be rebuilt
+needs_rebuild_due_to_changes(T) :- affected_by_changes(T).

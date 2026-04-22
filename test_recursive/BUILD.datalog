@@ -1,0 +1,8 @@
+# Root workspace
+target("//app:main").
+kind("//app:main", system_tool).
+attr("//app:main", "tool", "touch").
+attr("//app:main", "0", "{output}").
+deps("//app:main", "//pkg1:lib").
+outputs("//app:main", "main.out").
+license("//app:main", "MIT").

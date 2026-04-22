@@ -1,0 +1,18 @@
+# Target alias support
+# Usage: alias(AliasName, ActualTarget).
+#
+# Example:
+#   target("//app:server").
+#   alias("server", "//app:server").
+
+# Transitive aliases: alias can point to another alias
+alias(A, FinalTarget) :- alias(A, B), alias(B, FinalTarget).
+
+# Propagate facts from target to alias
+target(Alias) :- alias(Alias, Target), target(Target).
+kind(Alias, K) :- alias(Alias, Target), kind(Target, K).
+sources(Alias, S) :- alias(Alias, Target), sources(Target, S).
+deps(Alias, D) :- alias(Alias, Target), deps(Target, D).
+outputs(Alias, O) :- alias(Alias, Target), outputs(Target, O).
+attr(Alias, Key, Val) :- alias(Alias, Target), attr(Target, Key, Val).
+license(Alias, L) :- alias(Alias, Target), license(Target, L).

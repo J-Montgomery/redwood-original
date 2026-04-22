@@ -1,0 +1,4 @@
+# Engine configuration
+# Default maximum iterations for fixpoint evaluation
+# Increase if you have very deep dependency chains (>1000 levels)
+max_iterations(1000).

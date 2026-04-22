@@ -1,0 +1,15 @@
+# Aggregate functions
+#
+# count(PredicateName, Count) - counts facts matching the predicate
+# min(PredicateName, ArgIndex, MinValue) - finds minimum integer value at argument position
+# max(PredicateName, ArgIndex, MaxValue) - finds maximum integer value at argument position
+#
+# Usage examples:
+#   target_count(N) :- count("target", N).
+#   rebuild_count(N) :- count("needs_rebuild", N).
+#   has_targets() :- count("target", N), gt(N, 0).
+#
+#   highest_priority(P) :- max("task_priority", 1, P).
+#   lowest_priority(P) :- min("task_priority", 1, P).
+#
+# Aggregates return Value::Integer

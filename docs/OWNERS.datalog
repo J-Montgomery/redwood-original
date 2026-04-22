@@ -1,0 +1,25 @@
+# Example code ownership declarations
+#
+# This file demonstrates how to declare ownership using path-based prefixes.
+# Deepest matching prefix wins.
+#
+# Format:
+#   owner(PathPrefix, Owner)      - Declare who owns what path
+#   target_path(Target, Path)     - Map target labels to filesystem paths
+
+# Path-based ownership declarations
+owner("src", "core-team").
+owner("src/datalog", "datalog-expert").
+owner("app", "app-team").
+owner("app/api", "api-team").
+owner("tests", "qa").
+
+# Target path mappings
+# Maps target labels (//package:name) to filesystem paths
+# These must be declared explicitly for now
+target_path("//src/datalog:parser", "src/datalog").
+target_path("//src/datalog:engine", "src/datalog").
+target_path("//src/datalog:builtins", "src/datalog").
+target_path("//app/api:server", "app/api").
+target_path("//app:main", "app").
+target_path("//tests:integration", "tests").

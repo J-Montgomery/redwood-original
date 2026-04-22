@@ -1,0 +1,54 @@
+# External data via resolve() built-in
+#
+# The @ prefix denotes infrastructure/tooling targets vs // for build targets
+
+# Git primitives
+target("@git:commit").
+attr("@git:commit", "tool", "git").
+attr("@git:commit", "0", "rev-parse").
+attr("@git:commit", "1", "HEAD").
+
+target("@git:branch").
+attr("@git:branch", "tool", "git").
+attr("@git:branch", "0", "branch").
+attr("@git:branch", "1", "--show-current").
+
+target("@git:files").
+attr("@git:files", "tool", "git").
+attr("@git:files", "0", "ls-files").
+
+# Convenience predicates
+git_commit(Hash) :- resolve("@git:commit", Hash).
+git_branch(Branch) :- resolve("@git:branch", Branch).
+git_files(File) :- resolve("@git:files", File).
+
+# Platform detection
+target("@platform:os").
+attr("@platform:os", "tool", "uname").
+attr("@platform:os", "0", "-s").
+
+target("@platform:arch").
+attr("@platform:arch", "tool", "uname").
+attr("@platform:arch", "0", "-m").
+
+target("@platform:kernel").
+attr("@platform:kernel", "tool", "uname").
+attr("@platform:kernel", "0", "-r").
+
+platform_os(OS) :- resolve("@platform:os", OS).
+platform_arch(Arch) :- resolve("@platform:arch", Arch).
+platform_kernel(Kernel) :- resolve("@platform:kernel", Kernel).
+
+# Shell predicate - execute shell commands directly
+# Usage: shell_command("echo hello"), then shell("echo hello", Output)
+#
+# First mark commands you want to execute:
+#   shell_command("echo hello").
+#   message(M) :- shell("echo hello", M).
+#
+# The attrs are auto-generated from shell_command facts
+target(Cmd) :- shell_command(Cmd).
+attr(Cmd, "tool", "sh") :- shell_command(Cmd).
+attr(Cmd, "0", "-c") :- shell_command(Cmd).
+attr(Cmd, "1", Cmd) :- shell_command(Cmd).
+shell(Command, Output) :- shell_command(Command), resolve(Command, Output).

@@ -1,0 +1,262 @@
+toolchain(Target, Tool, Path) :-
+    requires_tool(Target, Tool),
+    toolchain_override(Tool, Path).
+
+toolchain(Target, Tool, Path) :-
+    requires_tool(Target, Tool),
+    tool_available(Tool, Path, Version),
+    not(toolchain_override(Tool, OverridePath)).
+
+requires_tool(Target, Tool) :-
+    kind(Target, system_tool),
+    attr(Target, "tool", Tool).
+
+build_ready(Target) :-
+    requires_tool(Target, Tool),
+    toolchain(Target, Tool, ToolPath).
+
+# GCC defaults - position-independent code, all warnings
+attr("gcc", "-fPIC").
+attr("gcc", "-Wall").
+
+# G++ defaults - position-independent code, all warnings, C++17
+attr("g++", "-fPIC").
+attr("g++", "-Wall").
+attr("g++", "-std", "c++17").
+
+# Clang defaults - position-independent code, all warnings
+attr("clang", "-fPIC").
+attr("clang", "-Wall").
+
+# Clang++ defaults - position-independent code, all warnings, C++17
+attr("clang++", "-fPIC").
+attr("clang++", "-Wall").
+attr("clang++", "-std", "c++17").
+
+# Go defaults - verbose output
+attr("go", "-v").
+
+# Python3 defaults - unbuffered output, warnings as errors
+attr("python3", "-u").
+attr("python3", "-Werror").
+
+# Node defaults - enable strict mode warnings
+attr("node", "--trace-warnings").
+
+# Helper predicates for common toolchains
+# These derive target, kind, and tool from assertions like system_cc(Target)
+
+target(Target) :- system_cc(Target).
+kind(Target, system_tool) :- system_cc(Target).
+attr(Target, "tool", "gcc") :- system_cc(Target).
+
+target(Target) :- system_cxx(Target).
+kind(Target, system_tool) :- system_cxx(Target).
+attr(Target, "tool", "g++") :- system_cxx(Target).
+
+target(Target) :- system_clang(Target).
+kind(Target, system_tool) :- system_clang(Target).
+attr(Target, "tool", "clang") :- system_clang(Target).
+
+target(Target) :- system_clangxx(Target).
+kind(Target, system_tool) :- system_clangxx(Target).
+attr(Target, "tool", "clang++") :- system_clangxx(Target).
+
+target(Target) :- system_go(Target).
+kind(Target, system_tool) :- system_go(Target).
+attr(Target, "tool", "go") :- system_go(Target).
+
+target(Target) :- system_python(Target).
+kind(Target, system_tool) :- system_python(Target).
+attr(Target, "tool", "python3") :- system_python(Target).
+
+target(Target) :- system_node(Target).
+kind(Target, system_tool) :- system_node(Target).
+attr(Target, "tool", "node") :- system_node(Target).
+
+# Constraint checking - evaluated in datalog
+has_sources(Target) :- sources(Target, Path).
+
+constraint_failed(Target, "requires at least one source") :-
+    system_cc(Target),
+    not(has_sources(Target)).
+
+constraint_failed(Target, "requires at least one source") :-
+    system_cxx(Target),
+    not(has_sources(Target)).
+
+constraint_failed(Target, "requires at least one source") :-
+    system_clang(Target),
+    not(has_sources(Target)).
+
+constraint_failed(Target, "requires at least one source") :-
+    system_clangxx(Target),
+    not(has_sources(Target)).
+
+constraint_failed(Target, "requires at least one source") :-
+    system_go(Target),
+    not(has_sources(Target)).
+
+constraint_failed(Target, "requires at least one source") :-
+    system_python(Target),
+    not(has_sources(Target)).
+
+constraint_failed(Target, "requires at least one source") :-
+    system_node(Target),
+    not(has_sources(Target)).
+
+# Cargo helpers for Rust builds
+target(Target) :- cargo_binary(Target).
+kind(Target, system_tool) :- cargo_binary(Target).
+attr(Target, "tool", "cargo") :- cargo_binary(Target).
+attr(Target, "0", "build") :- cargo_binary(Target).
+attr(Target, "1", "--release") :- cargo_binary(Target).
+attr(Target, "no_sandbox", "true") :- cargo_binary(Target).
+
+target(Target) :- cargo_binary_debug(Target).
+kind(Target, system_tool) :- cargo_binary_debug(Target).
+attr(Target, "tool", "cargo") :- cargo_binary_debug(Target).
+attr(Target, "0", "build") :- cargo_binary_debug(Target).
+attr(Target, "no_sandbox", "true") :- cargo_binary_debug(Target).
+
+target(Target) :- cargo_lib(Target).
+kind(Target, system_tool) :- cargo_lib(Target).
+attr(Target, "tool", "cargo") :- cargo_lib(Target).
+attr(Target, "0", "build") :- cargo_lib(Target).
+attr(Target, "1", "--release") :- cargo_lib(Target).
+attr(Target, "2", "--lib") :- cargo_lib(Target).
+attr(Target, "no_sandbox", "true") :- cargo_lib(Target).
+
+target(Target) :- cargo_test(Target).
+kind(Target, system_tool) :- cargo_test(Target).
+attr(Target, "tool", "cargo") :- cargo_test(Target).
+attr(Target, "0", "test") :- cargo_test(Target).
+attr(Target, "no_sandbox", "true") :- cargo_test(Target).
+
+# system_rustc for direct rustc compilation
+target(Target) :- system_rustc(Target).
+kind(Target, system_tool) :- system_rustc(Target).
+attr(Target, "tool", "rustc") :- system_rustc(Target).
+attr(Target, "no_sandbox", "true") :- system_rustc(Target).
+
+# Core rustc flags for compilation
+attr(Target, "0", "--edition") :- system_rustc(Target).
+attr(Target, "1", "2021") :- system_rustc(Target).
+attr(Target, "2", "--crate-name") :- system_rustc(Target).
+
+# Crate name from target
+attr(Target, "3", CrateName) :-
+    system_rustc(Target),
+    crate_name(Target, CrateName).
+
+# Source file (primary entry point)
+attr(Target, "4", Source) :-
+    system_rustc(Target),
+    primary_source(Target, Source).
+
+# Helper to determine if a target is a binary (vs library)
+is_binary(Target) :-
+    system_rustc(Target),
+    primary_source(Target, Source),
+    matches_glob(Source, "**/main.rs").
+
+# Crate type: bin if source is main.rs, lib otherwise
+# Binary crates
+attr(Target, "5", "--crate-type") :- is_binary(Target).
+attr(Target, "6", "bin") :- is_binary(Target).
+
+# Library crates
+attr(Target, "5", "--crate-type") :-
+    system_rustc(Target),
+    not(is_binary(Target)).
+attr(Target, "6", "lib") :-
+    system_rustc(Target),
+    not(is_binary(Target)).
+
+# Output path - only use the output generated by this target's rules, not inherited ones
+# For libraries: use .rlib output
+attr(Target, "-o", Output) :-
+    system_rustc(Target),
+    not(is_binary(Target)),
+    crate_name(Target, Name),
+    concat("target/rustc/lib", Name, Temp),
+    concat(Temp, ".rlib", Output).
+
+# For binaries: use binary output
+attr(Target, "-o", Output) :-
+    is_binary(Target),
+    crate_name(Target, Name),
+    concat("target/rustc/", Name, Output).
+
+# Library search path for dependencies (like cargo does)
+attr(Target, "-L dependency=target/release/deps", "") :-
+    system_rustc(Target).
+
+# External dependencies via --extern
+# For each dependency, add: --extern crate_name=path/to/lib.rlib
+# Use empty-value attrs so only the key (full flag) is used
+attr(Target, ExternFlag, "") :-
+    system_rustc(Target),
+    deps(Target, Dep),
+    crate_name(Dep, DepName),
+    outputs(Dep, DepPath),
+    concat("--extern ", DepName, Temp1),
+    concat(Temp1, "=", Temp2),
+    concat(Temp2, DepPath, ExternFlag).
+
+# Output computation
+# For libraries (.rlib)
+outputs(Target, Path) :-
+    system_rustc(Target),
+    not(is_binary(Target)),
+    crate_name(Target, Name),
+    concat("target/rustc/lib", Name, Temp),
+    concat(Temp, ".rlib", Path).
+
+# For binaries (no extension on Unix)
+outputs(Target, Path) :-
+    is_binary(Target),
+    crate_name(Target, Name),
+    concat("target/rustc/", Name, Path).
+
+# External crate discovery
+# External crates should be declared as base facts (not derived) to avoid circular dependencies
+# These facts should be generated in BUILD.datalog, typically via resolve() or explicit declarations
+
+# External crates are targets with external_dependency kind
+target(TargetLabel) :-
+    external_crate(Name),
+    concat("//external:", Name, TargetLabel).
+
+kind(TargetLabel, "external_dependency") :-
+    external_crate(Name),
+    concat("//external:", Name, TargetLabel).
+
+crate_name(TargetLabel, Name) :-
+    external_crate(Name),
+    concat("//external:", Name, TargetLabel).
+
+# Use .rlib files for external crates (needed for linking binaries)
+# Note: Cargo uses .rmeta for intermediate compilation but we need .rlib for final linking
+outputs(TargetLabel, Path) :-
+    external_crate(Name),
+    concat("//external:", Name, TargetLabel),
+    concat("target/release/deps/lib", Name, Temp1),
+    concat(Temp1, "-*.rlib", Pattern),
+    matches_glob(Path, Pattern).
+
+# Primary source must be explicitly declared
+# (This is typically mod.rs or lib.rs - the entry point for the module)
+
+# Constraints
+constraint_failed(Target, "requires at least one source") :-
+    system_rustc(Target),
+    not(sources(Target, _)).
+
+constraint_failed(Target, "requires crate_name declaration") :-
+    system_rustc(Target),
+    not(crate_name(Target, _)).
+
+constraint_failed(Target, "requires primary_source declaration") :-
+    system_rustc(Target),
+    not(primary_source(Target, _)).

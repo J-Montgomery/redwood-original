@@ -1,0 +1,101 @@
+# License Validation
+#
+# Prevents incompatible license combinations, e.g., linking GPL with proprietary code
+
+# License categories
+permissive_license("MIT").
+permissive_license("BSD-2-Clause").
+permissive_license("BSD-3-Clause").
+permissive_license("Apache-2.0").
+permissive_license("ISC").
+
+copyleft_license("GPL-2.0").
+copyleft_license("GPL-3.0").
+copyleft_license("LGPL-2.1").
+copyleft_license("LGPL-3.0").
+copyleft_license("AGPL-3.0").
+
+proprietary_license("Proprietary").
+proprietary_license("Commercial").
+
+# Weaker copyleft licenses that allow proprietary linking
+weak_copyleft("LGPL-2.1").
+weak_copyleft("LGPL-3.0").
+
+strong_copyleft("GPL-2.0").
+strong_copyleft("GPL-3.0").
+strong_copyleft("AGPL-3.0").
+
+# Collect all licenses from a target and its transitive dependencies
+has_license(Target, License) :-
+    license(Target, License).
+
+has_license(Target, License) :-
+    transitive_deps(Target, Dep),
+    license(Dep, License).
+
+# Proprietary code cannot depend on strong copyleft
+constraint_failed(Target, "depends on GPL/AGPL library but is proprietary") :-
+    license(Target, TargetLicense),
+    proprietary_license(TargetLicense),
+    has_license(Target, DepLicense),
+    strong_copyleft(DepLicense).
+
+# Proprietary code cannot depend on weak copyleft unless explicitly allowed
+constraint_failed(Target, "depends on LGPL library but is proprietary (use license_exception if intended)") :-
+    license(Target, TargetLicense),
+    proprietary_license(TargetLicense),
+    has_license(Target, DepLicense),
+    weak_copyleft(DepLicense),
+    not(license_exception(Target, DepLicense)).
+
+# GPL-2.0 and GPL-3.0 are incompatible
+constraint_failed(Target, "mixes GPL-2.0 and GPL-3.0 dependencies") :-
+    target(Target),
+    has_license(Target, "GPL-2.0"),
+    has_license(Target, "GPL-3.0").
+
+# GPL-2.0 and GPL-3.0 cannot be combined in the same binary
+constraint_failed(Target, "mixes GPL-2.0-only and GPL-3.0-only dependencies") :-
+    target(Target),
+    has_license(Target, "GPL-2.0-only"),
+    has_license(Target, "GPL-3.0-only").
+
+# AGPL requires all linked code to be AGPL or GPL-compatible
+constraint_failed(Target, "depends on AGPL library but is not AGPL-compatible") :-
+    has_license(Target, "AGPL-3.0"),
+    license(Target, TargetLicense),
+    not(copyleft_license(TargetLicense)),
+    not(permissive_license(TargetLicense)).
+
+# Targets must declare a license (unless explicitly exempted)
+constraint_failed(Target, "must declare a license") :-
+    target(Target),
+    not(license(Target, _)),
+    not(license_exempt(Target)).
+
+# License compatibility check - warn about mixing multiple copyleft licenses
+has_multiple_copyleft(Target) :-
+    has_license(Target, L1),
+    has_license(Target, L2),
+    copyleft_license(L1),
+    copyleft_license(L2),
+    neq(L1, L2).
+
+# Helper to check if target is compatible with dependency license
+license_compatible(TargetLicense, DepLicense) :-
+    permissive_license(TargetLicense),
+    permissive_license(DepLicense).
+
+license_compatible(TargetLicense, DepLicense) :-
+    permissive_license(DepLicense),
+    copyleft_license(TargetLicense).
+
+license_compatible(TargetLicense, DepLicense) :-
+    copyleft_license(TargetLicense),
+    copyleft_license(DepLicense),
+    not(neq(TargetLicense, DepLicense)).
+
+# Allow same license
+license_compatible(License, License) :-
+    license(_, License).
