@@ -73,7 +73,6 @@ fn namespace_rewriting_cross_namespace_refs() {
         deps_fact.args[0],
         Value::String("//external/boost//foo:bar".to_string())
     );
-    // Cross-namespace ref should not be rewritten (already fully qualified)
     assert_eq!(
         deps_fact.args[1],
         Value::String("//other/lib//baz:qux".to_string())
@@ -95,11 +94,10 @@ fn namespace_non_target_strings_not_rewritten() {
         attr_fact.args[0],
         Value::String("//external/boost//foo:bar".to_string())
     );
-    // Flag should not be rewritten (not a target label)
+
     assert_eq!(attr_fact.args[2], Value::String("-O3".to_string()));
 
     let sources_fact = &facts[1];
-    // File path should not be rewritten (not a target label)
     assert_eq!(
         sources_fact.args[1],
         Value::String("src/main.rs".to_string())

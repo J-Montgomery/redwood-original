@@ -21,22 +21,18 @@ fn filter_after_fact_insertion() {
         }],
     });
 
-    // Query before adding more facts
     let result1 = db.query("derived", &[Some("a")]);
     assert_eq!(result1.len(), 1);
 
-    // Add more facts
     db.insert_facts(vec![Fact {
         predicate: "target".to_string(),
         args: vec![Value::String("b".to_string())],
     }]);
 
-    // Query after insertion - cache should be invalidated
     let result2 = db.query("derived", &[Some("b")]);
     assert_eq!(result2.len(), 1);
     assert_eq!(result2[0].args[0], Value::String("b".to_string()));
 
-    // Query original should still work
     let result3 = db.query("derived", &[Some("a")]);
     assert_eq!(result3.len(), 1);
 }
@@ -56,7 +52,7 @@ fn constant_in_rule_head() {
         },
     ]);
 
-    // Rule with constant in head: derived("fixed", X) :- base(X)
+    // derived("fixed", X) :- base(X)
     db.compile_rule(Rule {
         head: Predicate {
             name: "derived".to_string(),
@@ -71,14 +67,12 @@ fn constant_in_rule_head() {
         }],
     });
 
-    // Filter on constant
     let result = db.query("derived", &[Some("fixed")]);
     assert_eq!(result.len(), 2);
     for fact in &result {
         assert_eq!(fact.args[0], Value::String("fixed".to_string()));
     }
 
-    // Filter on different constant (should return empty)
     let result_empty = db.query("derived", &[Some("wrong")]);
     assert_eq!(result_empty.len(), 0);
 }
@@ -111,7 +105,7 @@ fn multiple_joins_with_shared_variables() {
         },
     ]);
 
-    // Rule: result(X, W) :- a(X, Y), b(Y, Z), c(Z, W)
+    // result(X, W) :- a(X, Y), b(Y, Z), c(Z, W)
     db.compile_rule(Rule {
         head: Predicate {
             name: "result".to_string(),
@@ -145,7 +139,6 @@ fn multiple_joins_with_shared_variables() {
         ],
     });
 
-    // Filtered query
     let result = db.query("result", &[Some("x")]);
     assert_eq!(result.len(), 1);
     assert_eq!(result[0].args[0], Value::String("x".to_string()));
@@ -172,7 +165,6 @@ fn empty_result_with_filters() {
         }],
     });
 
-    // Query for non-existent target
     let result = db.query("derived", &[Some("nonexistent")]);
     assert_eq!(result.len(), 0);
 }
@@ -198,7 +190,7 @@ fn self_join_with_filter() {
         },
     ]);
 
-    // Rule: transitive(X, Z) :- related(X, Y), related(Y, Z)
+    // transitive(X, Z) :- related(X, Y), related(Y, Z)
     db.compile_rule(Rule {
         head: Predicate {
             name: "transitive".to_string(),
@@ -240,7 +232,6 @@ fn derived_predicate_used_multiple_times() {
         args: vec![Value::String("x".to_string())],
     }]);
 
-    // First derived predicate
     db.compile_rule(Rule {
         head: Predicate {
             name: "step1".to_string(),
@@ -252,7 +243,6 @@ fn derived_predicate_used_multiple_times() {
         }],
     });
 
-    // Second derived predicate using first
     db.compile_rule(Rule {
         head: Predicate {
             name: "step2".to_string(),
@@ -264,7 +254,6 @@ fn derived_predicate_used_multiple_times() {
         }],
     });
 
-    // Third using second
     db.compile_rule(Rule {
         head: Predicate {
             name: "final".to_string(),
@@ -276,7 +265,6 @@ fn derived_predicate_used_multiple_times() {
         }],
     });
 
-    // Filtered query should work through chain
     let result = db.query("final", &[Some("x")]);
     assert_eq!(result.len(), 1);
     assert_eq!(result[0].args[0], Value::String("x".to_string()));
@@ -297,7 +285,7 @@ fn comparison_with_lazy_evaluation() {
         },
     ]);
 
-    // Rule: high_value(X) :- value(X, V), gt(V, 5)
+    // high_value(X) :- value(X, V), gt(V, 5)
     db.compile_rule(Rule {
         head: Predicate {
             name: "high_value".to_string(),
@@ -321,7 +309,6 @@ fn comparison_with_lazy_evaluation() {
         ],
     });
 
-    // First test unfiltered to see if rule works at all
     let result_all = db.query("high_value", &[]);
     eprintln!("Unfiltered results: {:?}", result_all);
 
@@ -332,7 +319,7 @@ fn comparison_with_lazy_evaluation() {
 
     let result_a = db.query("high_value", &[Some("a")]);
     eprintln!("Filtered results for 'a': {:?}", result_a);
-    assert_eq!(result_a.len(), 0); // 5 is not > 5
+    assert_eq!(result_a.len(), 0);
 }
 
 #[test]
@@ -416,7 +403,7 @@ fn mixed_constants_and_variables() {
         },
     ]);
 
-    // Rule: typed_edge(X, Z) :- edge(X, "type1", Z)
+    // typed_edge(X, Z) :- edge(X, "type1", Z)
     db.compile_rule(Rule {
         head: Predicate {
             name: "typed_edge".to_string(),

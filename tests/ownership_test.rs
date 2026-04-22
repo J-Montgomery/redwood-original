@@ -24,11 +24,10 @@ fn deepest_owner_wins() {
         db.compile_rule(rule);
     }
 
-    // Should have both potential reviewers
     let potential = db.query("potential_reviewers", &[Some("//src/datalog:parser")]);
     assert_eq!(potential.len(), 2);
 
-    // But target_owner should only return deepest match
+    // target_owner should only return deepest match
     let owners = db.query("target_owner", &[Some("//src/datalog:parser")]);
     assert_eq!(owners.len(), 1);
     assert_eq!(owners[0].args[1], Value::String("bar".to_string())); // bar, not foo
@@ -58,11 +57,9 @@ fn prefix_matching() {
         db.compile_rule(rule);
     }
 
-    // Should match: app (alice) and app/api (bob)
     let potential = db.query("potential_reviewers", &[Some("//app/api:server")]);
     assert_eq!(potential.len(), 2);
 
-    // Should select: app/api (bob) - deepest
     let owners = db.query("target_owner", &[Some("//app/api:server")]);
     assert_eq!(owners.len(), 1);
     assert_eq!(owners[0].args[1], Value::String("bob".to_string()));
@@ -97,19 +94,16 @@ fn direct_vs_impact_owners() {
         db.compile_rule(rule);
     }
 
-    // Direct owner: security owns lib
     let direct = db.query("direct_owner", &[]);
     assert_eq!(direct.len(), 1);
     assert_eq!(direct[0].args[0], Value::String("//lib:auth".to_string()));
     assert_eq!(direct[0].args[1], Value::String("security".to_string()));
 
-    // Impact owner: backend owns app which depends on lib
     let impact = db.query("impact_owner", &[]);
     assert_eq!(impact.len(), 1);
     assert_eq!(impact[0].args[0], Value::String("//app:server".to_string()));
     assert_eq!(impact[0].args[1], Value::String("backend".to_string()));
 
-    // Both notified (deduplicated)
     let unique_direct = db.query("unique_direct_owner", &[]);
     assert_eq!(unique_direct.len(), 1);
     assert_eq!(
@@ -124,9 +118,9 @@ fn direct_vs_impact_owners() {
         Value::String("backend".to_string())
     );
 
-    // All owners combined
+
     let unique_all = db.query("unique_all_owners", &[]);
-    assert_eq!(unique_all.len(), 2); // security and backend
+    assert_eq!(unique_all.len(), 2);
 }
 
 #[test]
@@ -160,11 +154,10 @@ fn owner_deduplication() {
         db.compile_rule(rule);
     }
 
-    // All three targets have same owner
     let direct = db.query("direct_owner", &[]);
-    assert_eq!(direct.len(), 3); // 3 target-owner pairs
+    assert_eq!(direct.len(), 3);
 
-    // But unique_direct_owner returns expert only once
+    // Check deduplication
     let unique = db.query("unique_direct_owner", &[]);
     assert_eq!(unique.len(), 1);
     assert_eq!(unique[0].args[0], Value::String("expert".to_string()));
@@ -192,7 +185,6 @@ fn no_match_returns_empty() {
         db.compile_rule(rule);
     }
 
-    // No owner for unowned path
     let owners = db.query("target_owner", &[Some("//unowned:target")]);
     assert_eq!(owners.len(), 0);
 }
@@ -220,7 +212,6 @@ fn multiple_owners_same_prefix() {
         db.compile_rule(rule);
     }
 
-    // Both alice and bob should be owners
     let owners = db.query("target_owner", &[Some("//app:server")]);
     assert_eq!(owners.len(), 2);
 
@@ -272,25 +263,17 @@ fn transitive_impact_owners() {
         db.compile_rule(rule);
     }
 
-    // Direct owner: lib-team owns util
     let direct = db.query("direct_owner", &[]);
     assert_eq!(direct.len(), 1);
 
-    // Impact owners: only immediate dependency (lib:auth)
     let impact = db.query("impact_owner", &[]);
     assert_eq!(impact.len(), 1); // only lib:auth, owned by lib-team
-
-    // Transitive impact: all downstream targets (auth, server, client)
     let transitive = db.query("transitive_impact_owner", &[]);
     assert_eq!(transitive.len(), 3); // auth, server, client
 
-    // unique_all_owners includes direct (lib-team) + impact (lib-team again)
-    // Since lib:auth has path "lib", it's also owned by lib-team
-    // So we only get lib-team, not app-team (app:server/client are not in impact_owner)
     let unique_all = db.query("unique_all_owners", &[]);
     assert_eq!(unique_all.len(), 1); // only lib-team (both direct and immediate impact)
 
-    // If we want app-team included, we need to use transitive_impact_owner
     let unique_transitive = db.query("unique_transitive_owner", &[]);
     assert_eq!(unique_transitive.len(), 2); // lib-team and app-team
 }
@@ -323,11 +306,9 @@ fn query_what_owner_owns() {
         db.compile_rule(rule);
     }
 
-    // What does expert own?
     let expert_targets = db.query("target_owner", &[None, Some("expert")]);
-    assert_eq!(expert_targets.len(), 2); // parser and engine
+    assert_eq!(expert_targets.len(), 2);
 
-    // What does alice own?
     let alice_targets = db.query("target_owner", &[None, Some("alice")]);
-    assert_eq!(alice_targets.len(), 1); // server
+    assert_eq!(alice_targets.len(), 1);
 }

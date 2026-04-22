@@ -6,20 +6,17 @@ fn test_diff_rules_without_git() {
     // Test diff logic without git dependency
     let mut db = Engine::new();
 
-    // Manually insert facts as if from git
     db.insert_facts(vec![
         fact("baseline_target", vec!["//app:old"]),
         fact("head_target", vec!["//app:old"]),
         fact("head_target", vec!["//app:new"]),
     ]);
 
-    // Load diff rules
     let (_, rules, _) = prelude::get_prelude_with_locations();
     for rule in rules {
         db.compile_rule(rule);
     }
 
-    // Query
     let added = db.query("target_added", &[]);
     assert_eq!(added.len(), 1);
     assert_eq!(added[0].args[0], Value::String("//app:new".to_string()));
@@ -42,13 +39,11 @@ fn test_deps_added() {
         fact("head_deps", vec!["//app:server", "//lib:auth"]),
     ]);
 
-    // Load diff rules
     let (_, rules, _) = prelude::get_prelude_with_locations();
     for rule in rules {
         db.compile_rule(rule);
     }
 
-    // Query
     let added = db.query("deps_added", &[]);
     assert_eq!(added.len(), 1);
     assert_eq!(added[0].args[0], Value::String("//app:server".to_string()));
@@ -59,7 +54,7 @@ fn test_deps_added() {
 fn test_sources_added() {
     let mut db = Engine::new();
 
-    // Baseline has one source
+    // Base has one source
     db.insert_facts(vec![
         fact("baseline_target", vec!["//app:cli"]),
         fact("baseline_sources", vec!["//app:cli", "main.rs"]),
@@ -72,13 +67,11 @@ fn test_sources_added() {
         fact("head_sources", vec!["//app:cli", "lib.rs"]),
     ]);
 
-    // Load diff rules
     let (_, rules, _) = prelude::get_prelude_with_locations();
     for rule in rules {
         db.compile_rule(rule);
     }
 
-    // Query
     let added = db.query("sources_added", &[]);
     assert_eq!(added.len(), 1);
     assert_eq!(added[0].args[0], Value::String("//app:cli".to_string()));
@@ -89,32 +82,28 @@ fn test_sources_added() {
 fn test_directly_changed() {
     let mut db = Engine::new();
 
-    // Target added
     db.insert_facts(vec![fact("head_target", vec!["//app:new"])]);
 
-    // Source added
     db.insert_facts(vec![
         fact("baseline_target", vec!["//app:old"]),
         fact("head_target", vec!["//app:old"]),
         fact("head_sources", vec!["//app:old", "new_file.rs"]),
     ]);
 
-    // Load diff rules
     let (_, rules, _) = prelude::get_prelude_with_locations();
     for rule in rules {
         db.compile_rule(rule);
     }
 
-    // Query
     let changed = db.query("directly_changed", &[]);
-    assert!(changed.len() >= 2); // At least //app:new and //app:old
+    assert!(changed.len() >= 2);
 }
 
 #[test]
 fn test_affected_by_changes() {
     let mut db = Engine::new();
 
-    // Setup: lib changed, app depends on lib
+    // lib changed, app depends on lib
     db.insert_facts(vec![
         fact("baseline_target", vec!["//lib:core"]),
         fact("head_target", vec!["//lib:core"]),
@@ -123,16 +112,13 @@ fn test_affected_by_changes() {
         fact("head_deps", vec!["//app:server", "//lib:core"]),
     ]);
 
-    // Load diff rules
     let (_, rules, _) = prelude::get_prelude_with_locations();
     for rule in rules {
         db.compile_rule(rule);
     }
 
-    // Query
     let affected = db.query("affected_by_changes", &[]);
 
-    // Both lib:core (directly changed) and app:server (depends on it) should be affected
     let targets: Vec<String> = affected
         .iter()
         .map(|f| {

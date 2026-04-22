@@ -238,7 +238,6 @@ fn build_levels_with_dependencies() {
 
     use redwood::datalog::Value;
 
-    // Check leaf targets
     let leaves = db.query("leaf_target", &[]);
     let our_targets = ["//lib:a", "//lib:b", "//lib:c", "//app:final"];
     let our_leaves: Vec<_> = leaves
@@ -253,7 +252,6 @@ fn build_levels_with_dependencies() {
         .collect();
     assert_eq!(our_leaves.len(), 1, "Only lib:a is a leaf");
 
-    // Check build ordering
     let ordering = db.query("build_after", &[]);
 
     let must_build_after = |target: &str, dep: &str| -> bool {
@@ -268,7 +266,6 @@ fn build_levels_with_dependencies() {
         })
     };
 
-    // Direct dependencies
     assert!(must_build_after("//lib:b", "//lib:a"), "b builds after a");
     assert!(must_build_after("//lib:c", "//lib:a"), "c builds after a");
     assert!(
@@ -280,13 +277,12 @@ fn build_levels_with_dependencies() {
         "final builds after c"
     );
 
-    // Transitive dependencies
+
     assert!(
         must_build_after("//app:final", "//lib:a"),
         "final transitively builds after a"
     );
 
-    // Check parallelism
     let parallel = db.query("parallel_with", &[]);
 
     let can_parallel = |t1: &str, t2: &str| -> bool {

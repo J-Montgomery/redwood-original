@@ -25,7 +25,6 @@ fn graph_generator_creates_dot_file() {
         db.compile_rule(rule);
     }
 
-    // Load prelude for transitive_deps
     let (prelude_facts, prelude_rules, _) = redwood::runtime::prelude::get_prelude_with_locations();
     db.insert_facts(prelude_facts);
     for rule in prelude_rules {
@@ -41,7 +40,6 @@ fn graph_generator_creates_dot_file() {
     assert_eq!(plan.outputs.len(), 1);
     assert_eq!(plan.outputs[0].to_string_lossy(), "test_graph.dot");
 
-    // Execute the plan
     std::fs::remove_file("test_graph.dot").ok();
     let output = std::process::Command::new(&plan.command)
         .args(&plan.args)
@@ -54,7 +52,6 @@ fn graph_generator_creates_dot_file() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    // Verify the DOT file was created
     assert!(std::path::Path::new("test_graph.dot").exists());
 
     let content = std::fs::read_to_string("test_graph.dot").unwrap();
@@ -64,13 +61,11 @@ fn graph_generator_creates_dot_file() {
     // Note: transitive_deps("//test:c", D) returns only edges FROM //test:c,
     // not all edges in the transitive closure. So "//test:b" -> "//test:a" won't be included.
 
-    // Clean up
     std::fs::remove_file("test_graph.dot").unwrap();
 }
 
 #[test]
 fn graph_generator_with_prelude_integration() {
-    // Test that graph generation works with the prelude's graph() helper
     let program = r#"
         target("//lib:core").
         target("//lib:utils").
@@ -94,30 +89,25 @@ fn graph_generator_with_prelude_integration() {
         db.compile_rule(rule);
     }
 
-    // Load prelude
     let (prelude_facts, prelude_rules, _) = redwood::runtime::prelude::get_prelude_with_locations();
     db.insert_facts(prelude_facts);
     for rule in prelude_rules {
         db.compile_rule(rule);
     }
 
-    // Query the graph predicate to verify prelude integration
     let graph_query = db.query("graph", &[]);
     assert!(
         !graph_query.is_empty(),
         "graph() predicate should derive facts from graph_generator targets"
     );
 
-    // Verify the graph target is recognized
     let graph_targets = db.query("graph_target", &[]);
     assert_eq!(graph_targets.len(), 1);
 
-    // Generate the graph
     let target = TargetLabel::parse("//graphs:app_deps").unwrap();
     let generator = GraphGenerator;
     let plan = generator.plan(&target, &mut db).unwrap();
 
-    // Execute and verify
     std::fs::remove_file("app_deps.dot").ok();
     let output = std::process::Command::new(&plan.command)
         .args(&plan.args)
@@ -132,13 +122,11 @@ fn graph_generator_with_prelude_integration() {
     assert!(content.contains("\"//app:main\" -> \"//lib:utils\""));
     assert!(content.contains("\"//app:main\" -> \"//lib:core\""));
 
-    // Clean up
     std::fs::remove_file("app_deps.dot").unwrap();
 }
 
 #[test]
 fn graph_generator_with_different_query_types() {
-    // Test that different query types work
     let program = r#"
         target("//a").
         target("//b").
@@ -158,7 +146,6 @@ fn graph_generator_with_different_query_types() {
         db.compile_rule(rule);
     }
 
-    // Test deps query type
     let (test_facts, _) = parser::parse_program(
         r#"
         graph_generator("//graphs:test").

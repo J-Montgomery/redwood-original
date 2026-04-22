@@ -20,7 +20,7 @@ fn negation_with_bound_variables() {
         },
     ]);
 
-    // Rule: needs_rebuild(T) :- target(T), not(cached(T))
+    // needs_rebuild(T) :- target(T), not(cached(T))
     db.compile_rule(Rule {
         head: Predicate {
             name: "needs_rebuild".to_string(),
@@ -38,12 +38,10 @@ fn negation_with_bound_variables() {
         ],
     });
 
-    // Filtered query - should only check b
     let result = db.query("needs_rebuild", &[Some("b")]);
     assert_eq!(result.len(), 1);
     assert_eq!(result[0].args[0], Value::String("b".to_string()));
 
-    // Unfiltered query - should return only b
     let result_all = db.query("needs_rebuild", &[]);
     assert_eq!(result_all.len(), 1);
     assert_eq!(result_all[0].args[0], Value::String("b".to_string()));
@@ -64,7 +62,6 @@ fn negation_with_unbound_variables() {
         },
     ]);
 
-    // Rule with negation where variable is unbound in negation
     // only_target(T) :- target(T), not(cached(T))
     db.compile_rule(Rule {
         head: Predicate {
@@ -109,7 +106,7 @@ fn variable_binding_order_independence() {
         },
     ]);
 
-    // Rule: result(X, Y, Z) :- a(X, Y), b(Y, Z)
+    // result(X, Y, Z) :- a(X, Y), b(Y, Z)
     db.compile_rule(Rule {
         head: Predicate {
             name: "result".to_string(),
@@ -137,7 +134,6 @@ fn variable_binding_order_independence() {
         ],
     });
 
-    // Filter on first variable
     let result = db.query("result", &[Some("x")]);
     assert_eq!(result.len(), 1);
     assert_eq!(result[0].args[0], Value::String("x".to_string()));
@@ -160,7 +156,6 @@ fn derived_predicate_in_negation() {
         },
     ]);
 
-    // Derive filtered predicate
     db.compile_rule(Rule {
         head: Predicate {
             name: "filtered".to_string(),
@@ -181,7 +176,6 @@ fn derived_predicate_in_negation() {
         ],
     });
 
-    // Use derived predicate in negation
     db.compile_rule(Rule {
         head: Predicate {
             name: "not_filtered".to_string(),
@@ -223,7 +217,7 @@ fn multi_rule_predicate_with_filters() {
         },
     ]);
 
-    // First rule: target(T) :- type_a(T)
+    // target(T) :- type_a(T)
     db.compile_rule(Rule {
         head: Predicate {
             name: "target".to_string(),
@@ -235,7 +229,7 @@ fn multi_rule_predicate_with_filters() {
         }],
     });
 
-    // Second rule: target(T) :- type_b(T)
+    // target(T) :- type_b(T)
     db.compile_rule(Rule {
         head: Predicate {
             name: "target".to_string(),
@@ -247,7 +241,6 @@ fn multi_rule_predicate_with_filters() {
         }],
     });
 
-    // Query each separately
     let result_x = db.query("target", &[Some("x")]);
     assert_eq!(result_x.len(), 1);
     assert_eq!(result_x[0].args[0], Value::String("x".to_string()));
@@ -256,7 +249,6 @@ fn multi_rule_predicate_with_filters() {
     assert_eq!(result_y.len(), 1);
     assert_eq!(result_y[0].args[0], Value::String("y".to_string()));
 
-    // Query all
     let result_all = db.query("target", &[]);
     assert_eq!(result_all.len(), 2);
 }
@@ -299,21 +291,17 @@ fn cache_consistency_across_queries() {
         }],
     });
 
-    // First query: filtered
     let result1 = db.query("derived", &[Some("a")]);
     assert_eq!(result1.len(), 1);
     assert_eq!(result1[0].args[0], Value::String("a".to_string()));
 
-    // Second query: unfiltered (should use cache)
     let result2 = db.query("derived", &[]);
     assert_eq!(result2.len(), 2);
 
-    // Third query: different filter
     let result3 = db.query("derived", &[Some("b")]);
     assert_eq!(result3.len(), 1);
     assert_eq!(result3[0].args[0], Value::String("b".to_string()));
 
-    // Fourth query: back to first filter (should be consistent)
     let result4 = db.query("derived", &[Some("a")]);
     assert_eq!(result4.len(), 1);
     assert_eq!(result4[0].args[0], Value::String("a".to_string()));
@@ -340,7 +328,7 @@ fn equality_in_rule_body_with_lazy_eval() {
         },
     ]);
 
-    // Rule with equality: filtered(X) :- item(X, V), V = "val1"
+    // filtered(X) :- item(X, V), V = "val1"
     db.compile_rule(Rule {
         head: Predicate {
             name: "filtered".to_string(),
@@ -364,12 +352,10 @@ fn equality_in_rule_body_with_lazy_eval() {
         ],
     });
 
-    // Filtered query
     let result = db.query("filtered", &[Some("x")]);
     assert_eq!(result.len(), 1);
     assert_eq!(result[0].args[0], Value::String("x".to_string()));
 
-    // Query with wrong filter (should return empty)
     let result_empty = db.query("filtered", &[Some("y")]);
     assert_eq!(result_empty.len(), 0);
 }
@@ -378,7 +364,6 @@ fn equality_in_rule_body_with_lazy_eval() {
 fn deep_dependency_chain() {
     let mut db = Engine::new();
 
-    // Create chain: a -> b -> c -> d -> e
     for i in 0..4 {
         db.insert_facts(vec![Fact {
             predicate: "edge".to_string(),
@@ -433,11 +418,9 @@ fn deep_dependency_chain() {
         ],
     });
 
-    // Filtered query should only compute needed paths
     let result = db.query("path", &[Some("n0")]);
     assert_eq!(result.len(), 4); // n0->n1, n0->n2, n0->n3, n0->n4
 
-    // Verify correctness
     let targets: Vec<String> = result
         .iter()
         .map(|f| match &f.args[1] {
@@ -476,7 +459,7 @@ fn inequality_in_membership_check() {
         },
     ]);
 
-    // Rule: valid(X) :- item(X, V), V != "excluded"
+    // valid(X) :- item(X, V), V != "excluded"
     db.compile_rule(Rule {
         head: Predicate {
             name: "valid".to_string(),
@@ -500,12 +483,10 @@ fn inequality_in_membership_check() {
         ],
     });
 
-    // Filtered query for 'b' should succeed
     let result = db.query("valid", &[Some("b")]);
     assert_eq!(result.len(), 1);
     assert_eq!(result[0].args[0], Value::String("b".to_string()));
 
-    // Filtered query for 'a' should fail (excluded)
     let result_excluded = db.query("valid", &[Some("a")]);
     assert_eq!(result_excluded.len(), 0);
 }
@@ -533,7 +514,6 @@ fn partial_variable_binding_in_multi_arg_predicate() {
         },
     ]);
 
-    // Rule that uses triple with partial binding
     db.compile_rule(Rule {
         head: Predicate {
             name: "uses_triple".to_string(),
@@ -553,11 +533,9 @@ fn partial_variable_binding_in_multi_arg_predicate() {
         }],
     });
 
-    // Filter on first arg only
     let result = db.query("uses_triple", &[Some("a")]);
     assert_eq!(result.len(), 2);
 
-    // Verify both tuples with first arg "a" are returned
     for fact in &result {
         assert_eq!(fact.args[0], Value::String("a".to_string()));
     }

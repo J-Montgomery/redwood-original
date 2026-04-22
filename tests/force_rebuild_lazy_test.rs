@@ -69,8 +69,7 @@ fn force_rebuild_computed_lazily() {
         num_targets, elapsed
     );
 
-    // Dependency resolution is now lazy - only queries transitive_deps for requested targets
-    // This should complete quickly even with many targets in the workspace
+     // This should complete quickly even with many targets in the workspace
     assert!(
         elapsed.as_secs() < 10,
         "Query should complete within reasonable time. Took {:?}",
@@ -123,7 +122,7 @@ fn force_rebuild_eager_would_be_slow() {
         num_targets, elapsed
     );
 
-    // With 2000 targets, we expect O(N) behavior
+    // Should be O(N)
     assert!(
         elapsed.as_secs() < 10,
         "Query should complete within reasonable time. Took {:?}",
@@ -188,8 +187,7 @@ fn force_rebuild_with_complex_graph_lazy() {
         elapsed
     );
 
-    // Note: Currently evaluates force_rebuild(T) :- target(T) for all T
-    // This documents current behavior; filtering happens after rule evaluation
+    // force_rebuild(T) :- target(T) for all T
     assert!(
         elapsed.as_secs() < 10,
         "Query should complete within reasonable time. Took {:?}",

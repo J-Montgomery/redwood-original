@@ -6,7 +6,6 @@ use std::time::Instant;
 fn verify_lazy_evaluation_performance() {
     let mut facts = Vec::new();
 
-    // Create chain: 0 -> 1 -> 2 -> ... -> 99
     for i in 0..100 {
         let target = format!("//target{}", i);
         facts.push(Fact {
@@ -81,7 +80,6 @@ fn verify_lazy_evaluation_performance() {
         db.compile_rule(rule);
     }
     let compile_time = compile_start.elapsed();
-    println!("Compile rules (SHOULD BE FAST <10ms): {:?}", compile_time);
 
     let query_start = Instant::now();
     let results = db.query("transitive_deps", &[]);
@@ -94,16 +92,12 @@ fn verify_lazy_evaluation_performance() {
 
     println!("Total: {:?}", compile_time + query_time);
 
-    // Verify we got the right number of results (4950 for chain of 100)
     assert_eq!(results.len(), 4950);
 
-    // Rule compilation should be nearly instant (<1ms) since we're lazy
+    // Rule compilation should be <1ms
     assert!(
         compile_time.as_millis() < 1,
         "Rule compilation took too long: {:?}. Should be <1ms for lazy evaluation",
         compile_time
     );
-
-    // Query time will be slower since computation happens on-demand
-    // This is correct - like Bazel, we compute only what's needed when it's needed
 }
