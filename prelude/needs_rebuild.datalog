@@ -1,25 +1,23 @@
-# Incremental build rules
-# Rebuild if output doesn't exist
 needs_rebuild(T) :-
     target(T),
     outputs(T, O),
     not(file_exists(O)).
 
-# Rebuild if no cached hash (first build)
+# Rebuild if cache is empty
 needs_rebuild(T) :-
     target(T),
     sources(T, S),
     file_hash(S, NewHash),
     not(cached_hash(T, S, OldHash)).
 
-# Rebuild if any input changed
+# Rebuild if inputs changed
 needs_rebuild(T) :-
     target(T),
     file_hash(Input, NewHash),
     cached_hash(T, Input, OldHash),
     NewHash != OldHash.
 
-# Force rebuild - ignores cache
+# Force rebuild, ignoring cache
 needs_rebuild(T) :-
     target(T),
     force_rebuild(T).

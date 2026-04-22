@@ -74,7 +74,6 @@ target(Target) :- system_node(Target).
 kind(Target, system_tool) :- system_node(Target).
 attr(Target, "tool", "node") :- system_node(Target).
 
-# Constraint checking - evaluated in datalog
 has_sources(Target) :- sources(Target, Path).
 
 constraint_failed(Target, "requires at least one source") :-
@@ -194,7 +193,6 @@ attr(Target, "-L dependency=target/release/deps", "") :-
 
 # External dependencies via --extern
 # For each dependency, add: --extern crate_name=path/to/lib.rlib
-# Use empty-value attrs so only the key (full flag) is used
 attr(Target, ExternFlag, "") :-
     system_rustc(Target),
     deps(Target, Dep),
@@ -204,7 +202,6 @@ attr(Target, ExternFlag, "") :-
     concat(Temp1, "=", Temp2),
     concat(Temp2, DepPath, ExternFlag).
 
-# Output computation
 # For libraries (.rlib)
 outputs(Target, Path) :-
     system_rustc(Target),
@@ -213,7 +210,7 @@ outputs(Target, Path) :-
     concat("target/rustc/lib", Name, Temp),
     concat(Temp, ".rlib", Path).
 
-# For binaries (no extension on Unix)
+# For binaries
 outputs(Target, Path) :-
     is_binary(Target),
     crate_name(Target, Name),
@@ -237,7 +234,7 @@ crate_name(TargetLabel, Name) :-
     concat("//external:", Name, TargetLabel).
 
 # Use .rlib files for external crates (needed for linking binaries)
-# Note: Cargo uses .rmeta for intermediate compilation but we need .rlib for final linking
+# Cargo uses .rmeta for intermediate compilation but we need .rlib for final linking
 outputs(TargetLabel, Path) :-
     external_crate(Name),
     concat("//external:", Name, TargetLabel),
@@ -246,7 +243,6 @@ outputs(TargetLabel, Path) :-
     matches_glob(Path, Pattern).
 
 # Primary source must be explicitly declared
-# (This is typically mod.rs or lib.rs - the entry point for the module)
 
 # Constraints
 constraint_failed(Target, "requires at least one source") :-

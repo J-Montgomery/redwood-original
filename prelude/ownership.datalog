@@ -1,5 +1,3 @@
-# Code ownership resolution
-#
 # Usage:
 #   owner(PathPrefix, Owner) - Declare ownership by path
 #   target_path(Target, Path) - Map targets to filesystem paths
@@ -18,7 +16,7 @@ potential_reviewers(T, Owner) :-
     owner(Prefix, Owner),
     prefix(P, Prefix).
 
-# Deepest match wins - eliminate if a longer prefix exists
+# Deepest match wins
 target_owner(T, Owner) :-
     potential_reviewers(T, Owner),
     not(has_deeper_owner(T, Owner)).
@@ -33,9 +31,6 @@ has_deeper_owner(T, Owner) :-
     prefix(P, Prefix2),
     prefix(Prefix2, Prefix1),
     Prefix2 != Prefix1.
-
-# Business rule predicates
-# Users can query different predicates for different notification policies
 
 # Direct owners: own the changed code
 direct_owner(T, Owner) :-
@@ -54,14 +49,10 @@ transitive_impact_owner(T, Owner) :-
     transitive_deps(T, ChangedTarget),
     target_owner(T, Owner).
 
-# Deduplication helpers
-# Datalog's set semantics naturally deduplicate, these make it explicit
-
 unique_direct_owner(Owner) :- direct_owner(_, Owner).
 unique_impact_owner(Owner) :- impact_owner(_, Owner).
 unique_transitive_owner(Owner) :- transitive_impact_owner(_, Owner).
 
-# Combined: all owners across direct and impact
 all_owners(Owner) :- direct_owner(_, Owner).
 all_owners(Owner) :- impact_owner(_, Owner).
 unique_all_owners(Owner) :- all_owners(Owner).

@@ -1,6 +1,3 @@
-# Graph generation support
-
-# Define a graph target
 # Usage: graph(OutputFile, RootTarget, QueryType)
 # QueryType can be: transitive_deps, all_rdeps, deps, rdeps
 graph(OutputFile, RootTarget, QueryType) :-
@@ -9,9 +6,7 @@ graph(OutputFile, RootTarget, QueryType) :-
     attr(T, "root", RootTarget),
     attr(T, "query", QueryType).
 
-# Helper to identify graph targets
 graph_target(T) :- kind(T, graph_generator).
 
-# Target definition rule
 target(T) :- graph_target(T).
 kind(T, graph_generator) :- graph_generator(T).

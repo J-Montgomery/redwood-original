@@ -1,15 +1,10 @@
-# Query helper predicates for common use cases
-# Usage: Query without filters and filter results in application code
-# Example: redwood query "rdeps" and filter for specific targets
-
-# Reverse dependencies: who depends on this target?
+# Usage: redwood query "rdeps"
 rdeps(Target, Dependent) :- deps(Dependent, Target).
 
 # Transitive reverse dependencies
 all_rdeps(Target, Dependent) :- rdeps(Target, Dependent).
 all_rdeps(Target, Dependent) :- rdeps(Target, X), all_rdeps(X, Dependent).
 
-# Aliases for clarity
 direct_deps(Target, Dep) :- deps(Target, Dep).
 all_deps(Target, Dep) :- transitive_deps(Target, Dep).
 

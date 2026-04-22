@@ -1,6 +1,3 @@
-# Computed attributes - derive facts from other facts
-
-# Extract target name from label
 target_name(Label, Name) :-
     target(Label),
     split(Label, ":", 1, Name).

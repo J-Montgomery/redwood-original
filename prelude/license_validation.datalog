@@ -1,8 +1,4 @@
-# License Validation
-#
-# Prevents incompatible license combinations, e.g., linking GPL with proprietary code
-
-# License categories
+# Known license categories
 permissive_license("MIT").
 permissive_license("BSD-2-Clause").
 permissive_license("BSD-3-Clause").
@@ -26,7 +22,7 @@ strong_copyleft("GPL-2.0").
 strong_copyleft("GPL-3.0").
 strong_copyleft("AGPL-3.0").
 
-# Collect all licenses from a target and its transitive dependencies
+# Collect licenses from target and transitive_deps
 has_license(Target, License) :-
     license(Target, License).
 
@@ -34,7 +30,7 @@ has_license(Target, License) :-
     transitive_deps(Target, Dep),
     license(Dep, License).
 
-# Proprietary code cannot depend on strong copyleft
+# Proprietary targets cannot depend on strong copyleft
 constraint_failed(Target, "depends on GPL/AGPL library but is proprietary") :-
     license(Target, TargetLicense),
     proprietary_license(TargetLicense),
@@ -68,13 +64,13 @@ constraint_failed(Target, "depends on AGPL library but is not AGPL-compatible") 
     not(copyleft_license(TargetLicense)),
     not(permissive_license(TargetLicense)).
 
-# Targets must declare a license (unless explicitly exempted)
+# Targets must declare a license unless exempted
 constraint_failed(Target, "must declare a license") :-
     target(Target),
     not(license(Target, _)),
     not(license_exempt(Target)).
 
-# License compatibility check - warn about mixing multiple copyleft licenses
+# Warn about mixing different copyleft licenses
 has_multiple_copyleft(Target) :-
     has_license(Target, L1),
     has_license(Target, L2),
@@ -82,7 +78,7 @@ has_multiple_copyleft(Target) :-
     copyleft_license(L2),
     neq(L1, L2).
 
-# Helper to check if target is compatible with dependency license
+# Check if target is compatible with dependency license
 license_compatible(TargetLicense, DepLicense) :-
     permissive_license(TargetLicense),
     permissive_license(DepLicense).
