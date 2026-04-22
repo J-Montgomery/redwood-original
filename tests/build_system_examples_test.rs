@@ -22,7 +22,6 @@ fn diamond_dependency_resolution() {
         db.compile_rule(rule);
     }
 
-    // Define helper rules for this test
     let diamond_rules = r#"
         diamond_dep(Root, Common) :-
             deps(Root, DepA),
@@ -39,7 +38,6 @@ fn diamond_dependency_resolution() {
 
     let results = db.query("diamond_dep", &[]);
 
-    // Should find that //app has diamond dependency on libcore (via both liba and libb)
     let has_diamond = results.iter().any(|f| {
         if let Some(redwood::datalog::Value::String(root)) = f.args.first() {
             root == "//app"
@@ -73,7 +71,6 @@ fn platform_specific_builds() {
         db.compile_rule(rule);
     }
 
-    // Platform-specific dependency resolution
     let active_rules = r#"
         active_deps(Target, Dep) :-
             deps(Target, Dep).
@@ -88,8 +85,6 @@ fn platform_specific_builds() {
     }
 
     let results = db.query("active_deps", &[]);
-
-    // On linux, should have //lib:common and //lib:posix, but not //lib:win32
     let deps: Vec<String> = results
         .iter()
         .filter_map(|f| {
@@ -157,15 +152,9 @@ fn source_file_discovery_with_exclusions() {
         })
         .collect();
 
-    // Should include main.rs and lib.rs
     assert!(sources.contains(&"src/main.rs".to_string()));
     assert!(sources.contains(&"src/lib.rs".to_string()));
-
-    // Should exclude target/output.rs (target/** pattern)
     assert!(!sources.contains(&"target/output.rs".to_string()));
-
-    // test_helper.rs may or may not be excluded depending on glob implementation
-    // The key point is that glob patterns work for exclusions
 }
 
 #[test]
@@ -281,7 +270,6 @@ fn test_discovery_and_selection() {
         db.compile_rule(rule);
     }
 
-    // Query fast tests
     let fast_tests = db.query("fast_test", &[]);
     assert_eq!(fast_tests.len(), 1);
     assert!(fast_tests.iter().any(|f| {
@@ -292,11 +280,9 @@ fn test_discovery_and_selection() {
         }
     }));
 
-    // Query slow tests
     let slow_tests = db.query("slow_test", &[]);
     assert_eq!(slow_tests.len(), 2);
 
-    // Find tests using //lib:core
     let results = db.query("tests_using", &[]);
     let tests_using_core: Vec<String> = results
         .iter()
@@ -409,13 +395,11 @@ fn parallel_build_scheduling() {
         db.compile_rule(rule);
     }
 
-    // Leaf targets (no dependencies)
     let leaves = db.query("leaf_target", &[]);
     let leaf_targets: Vec<String> = leaves
         .iter()
         .filter_map(|f| {
             if let Some(redwood::datalog::Value::String(t)) = f.args.first() {
-                // Filter to only test targets (not external crates from prelude)
                 if t.starts_with("//a")
                     || t.starts_with("//b")
                     || t.starts_with("//c")
@@ -434,7 +418,6 @@ fn parallel_build_scheduling() {
     assert!(leaf_targets.contains(&"//a".to_string()));
     assert_eq!(leaf_targets.len(), 1);
 
-    // Build ordering
     let ordering = db.query("build_after", &[]);
     let d_after_a = ordering.iter().any(|f| {
         if let (
@@ -634,7 +617,6 @@ fn monorepo_package_dependencies() {
 
     let results = db.query("pkg_deps", &[]);
 
-    // Direct package dependencies
     let has_api_http = results.iter().any(|f| {
         if let (
             Some(redwood::datalog::Value::String(a)),
@@ -648,7 +630,6 @@ fn monorepo_package_dependencies() {
     });
     assert!(has_api_http);
 
-    // Transitive package dependencies
     let transitive = db.query("transitive_pkg_deps", &[]);
     let has_api_core = transitive.iter().any(|f| {
         if let (

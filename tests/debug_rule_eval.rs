@@ -25,7 +25,6 @@ fn debug_requires_tool_step_by_step() {
         db.compile_rule(rule);
     }
 
-    // Check requires_tool
     let requires_facts = db.query("requires_tool", &[]);
 
     assert!(

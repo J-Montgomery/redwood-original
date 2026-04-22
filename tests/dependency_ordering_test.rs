@@ -37,7 +37,6 @@ fn topological_sort_orders_dependencies() {
 
     db.insert_facts(facts);
 
-    // Add transitive_deps rules
     let tc_rules = vec![
         Rule {
             head: Predicate {
@@ -86,11 +85,9 @@ fn topological_sort_orders_dependencies() {
         db.compile_rule(rule);
     }
 
-    // Query transitive deps for A - should include B and C
     let a_deps = db.query("transitive_deps", &[Some("//pkg:a"), None]);
     assert_eq!(a_deps.len(), 2);
 
-    // Query transitive deps for B - should include only C
     let b_deps = db.query("transitive_deps", &[Some("//pkg:b"), None]);
     assert_eq!(b_deps.len(), 1);
 }
@@ -99,7 +96,6 @@ fn topological_sort_orders_dependencies() {
 fn smart_cache_invalidation_preserves_unrelated() {
     let mut db = Engine::new();
 
-    // Add facts for two independent predicates
     let facts_a = vec![
         Fact {
             predicate: "a".to_string(),
@@ -119,7 +115,6 @@ fn smart_cache_invalidation_preserves_unrelated() {
     db.insert_facts(facts_a);
     db.insert_facts(facts_b.clone());
 
-    // Add rules that derive from a and b
     db.compile_rule(Rule {
         head: Predicate {
             name: "derived_a".to_string(),
@@ -142,24 +137,20 @@ fn smart_cache_invalidation_preserves_unrelated() {
         }],
     });
 
-    // Query both derived predicates to force computation
     let derived_a_first = db.query("derived_a", &[]);
     let derived_b_first = db.query("derived_b", &[]);
 
     assert_eq!(derived_a_first.len(), 2);
     assert_eq!(derived_b_first.len(), 1);
 
-    // Insert new fact into 'a' predicate
     db.insert_facts(vec![Fact {
         predicate: "a".to_string(),
         args: vec![Value::String("4".to_string())],
     }]);
 
-    // derived_a should be recomputed (3 facts now)
     let derived_a_second = db.query("derived_a", &[]);
     assert_eq!(derived_a_second.len(), 3);
 
-    // derived_b should NOT be recomputed - still 1 fact
     let derived_b_second = db.query("derived_b", &[]);
     assert_eq!(derived_b_second.len(), 1);
 }

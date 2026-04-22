@@ -80,7 +80,6 @@ fn diamond_dependency() {
     };
 
     {
-        // Compile rules using public API
         db.compile_rule(base_rule);
         db.compile_rule(recursive_rule);
 
@@ -524,7 +523,6 @@ fn circular_dependency_detection() {
     };
 
     {
-        // Compile rules using public API
         db.compile_rule(base_rule);
         db.compile_rule(recursive_rule);
         db.compile_rule(cycle_rule);

@@ -81,8 +81,7 @@ fn self_join_forces_equality() {
 
     db.compile_rule(rule);
     let results = db.query("self_loop", &[]);
-    // Self-join should correctly filter out non-matching edges
-    assert_eq!(results.len(), 0); // No self-loops in the data
+    assert_eq!(results.len(), 0);
 }
 
 #[test]
@@ -385,7 +384,6 @@ fn recursive_with_cycle() {
     };
 
     {
-        // Use public API
         db.compile_rule(base_rule);
         db.compile_rule(recursive_rule);
 
@@ -468,7 +466,6 @@ fn recursive_self_loop() {
     };
 
     {
-        // Use public API
         db.compile_rule(base_rule);
         db.compile_rule(recursive_rule);
 

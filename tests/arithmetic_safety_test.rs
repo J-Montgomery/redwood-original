@@ -96,10 +96,8 @@ fn div_by_zero_fails_safely() {
     }
 
     let results = db.query("quotient", &[]);
-    // Should only have results for denominator=2, not denominator=0
     assert_eq!(results.len(), 2, "Division by zero should be skipped");
 
-    // Verify no division by zero occurred
     for result in &results {
         if let Some(redwood::datalog::Value::Integer(d)) = result.args.get(1) {
             assert_ne!(*d, 0, "Should not have results with denominator 0");
@@ -126,10 +124,8 @@ fn mod_by_zero_fails_safely() {
     }
 
     let results = db.query("remainder", &[]);
-    // Should only have results for modulus=3, not modulus=0
     assert_eq!(results.len(), 2, "Modulo by zero should be skipped");
 
-    // Verify no modulo by zero occurred
     for result in &results {
         if let Some(redwood::datalog::Value::Integer(m)) = result.args.get(1) {
             assert_ne!(*m, 0, "Should not have results with modulus 0");

@@ -5,7 +5,6 @@ use redwood::datalog::{parser, Fact, Value};
 fn variable_arity_matching() {
     let mut db = Engine::new();
 
-    // Insert 2-arg fact
     db.insert_facts(vec![Fact {
         predicate: "attr".to_string(),
         args: vec![
@@ -14,7 +13,6 @@ fn variable_arity_matching() {
         ],
     }]);
 
-    // Insert 3-arg fact
     db.insert_facts(vec![Fact {
         predicate: "attr".to_string(),
         args: vec![
@@ -24,7 +22,6 @@ fn variable_arity_matching() {
         ],
     }]);
 
-    // Query with wildcard in third position should match both
     let input = r#"
         result(X, Y) :- attr(X, Y, _).
     "#;
@@ -126,7 +123,6 @@ fn wildcard_ignores_values() {
     }
 
     let results = db.query("tool_path", &[]);
-    // Both tool_available facts match, but produce identical tool_path results which are deduplicated
     assert_eq!(
         results.len(),
         1,

@@ -20,23 +20,18 @@ fn debug_all_rdeps_fixpoint() {
         db.compile_rule(rule);
     }
 
-    // Check rdeps
     let rdeps_all = db.query("rdeps", &[]);
     eprintln!("rdeps facts:");
     for r in &rdeps_all {
         eprintln!("  {:?}", r);
     }
 
-    // Check all_rdeps
     let all_rdeps_all = db.query("all_rdeps", &[]);
     eprintln!("\nall_rdeps facts:");
     for r in &all_rdeps_all {
         eprintln!("  {:?}", r);
     }
 
-    // Should have:
-    // rdeps(A, B), rdeps(B, C)
-    // all_rdeps(A, B), all_rdeps(B, C), all_rdeps(A, C)
     assert_eq!(rdeps_all.len(), 2, "Should have 2 rdeps facts");
     assert_eq!(
         all_rdeps_all.len(),
