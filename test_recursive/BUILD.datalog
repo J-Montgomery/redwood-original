@@ -1,4 +1,3 @@
-# Root workspace
 target("//app:main").
 kind("//app:main", system_tool).
 attr("//app:main", "tool", "touch").

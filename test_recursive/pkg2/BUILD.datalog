@@ -1,5 +1,3 @@
-# Package 2
-# In recursive mode, this target becomes //pkg2:util
 target("//:util").
 kind("//:util", system_tool).
 attr("//:util", "tool", "touch").
