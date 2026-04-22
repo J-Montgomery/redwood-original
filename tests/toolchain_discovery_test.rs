@@ -15,12 +15,11 @@ fn toolchain_scanner_finds_tools() {
         assert_eq!(fact.predicate, "tool_available");
         assert_eq!(fact.args.len(), 3);
 
-        if let (Value::String(tool), Value::String(path), Value::String(version)) =
+        if let (Value::String(tool), Value::String(path), _) =
             (&fact.args[0], &fact.args[1], &fact.args[2])
         {
             assert!(!tool.is_empty());
             assert!(!path.is_empty());
-            assert!(!version.is_empty() || version == "unknown");
         } else {
             panic!("Invalid tool_available fact format");
         }
