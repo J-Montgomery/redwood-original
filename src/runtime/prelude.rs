@@ -3,10 +3,6 @@ use std::collections::HashMap;
 
 const PRELUDE_FILES: &[(&str, &str)] = &[
     (
-        "aggregates.datalog",
-        include_str!("../../prelude/aggregates.datalog"),
-    ),
-    (
         "aliases.datalog",
         include_str!("../../prelude/aliases.datalog"),
     ),
