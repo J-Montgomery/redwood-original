@@ -60,7 +60,6 @@ impl Sandbox {
     }
 
     fn validate_input_path(&self, input: &PathBuf) -> Result<PathBuf, String> {
-        // First check: verify the original path doesn't contain .. segments
         let path_str = input.to_string_lossy();
         if path_str.contains("..") {
             return Err(format!(
@@ -81,7 +80,6 @@ impl Sandbox {
             self.original_working_dir.join(input)
         };
 
-        // Check if file exists before canonicalization
         if !input_abs.exists() {
             return Err(format!(
                 "Target '{}': Input file does not exist\n\
@@ -92,7 +90,6 @@ impl Sandbox {
             ));
         }
 
-        // Canonicalize to resolve symlinks
         let canonical = input_abs.canonicalize().map_err(|e| {
             format!(
                 "Target '{}': Path validation failed\n\
@@ -106,7 +103,6 @@ impl Sandbox {
             )
         })?;
 
-        // Ensure the canonicalized path is within the workspace root
         let canonical_workspace = self.original_working_dir.canonicalize().map_err(|e| {
             format!(
                 "Target '{}': Failed to canonicalize workspace root\n\
@@ -146,7 +142,6 @@ impl Sandbox {
             .collect();
 
         for input in unique_inputs {
-            // Validate the input path for security (includes existence check)
             let input_abs = self.validate_input_path(input)?;
 
             // Mirror absolute paths: /home/user/src/file.c -> sandbox/home/user/src/file.c
@@ -693,7 +688,6 @@ mod tests {
     fn error_messages_include_target_and_suggestions() {
         let temp_dir = tempfile::tempdir().unwrap();
 
-        // Test missing input error
         let mut plan = create_test_plan(vec![PathBuf::from("missing.txt")], vec![]);
         plan.working_dir = temp_dir.path().to_path_buf();
 
@@ -704,7 +698,6 @@ mod tests {
             assert!(msg.contains("sources()"), "Missing input error should suggest sources() predicate");
         }
 
-        // Test missing output error
         let output_file = PathBuf::from("output.txt");
         let mut plan = create_test_plan(vec![], vec![output_file]);
         plan.working_dir = temp_dir.path().to_path_buf();

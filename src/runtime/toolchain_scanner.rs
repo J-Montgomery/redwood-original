@@ -16,7 +16,6 @@ impl ToolchainScanner {
         Self {
             tools: vec![
                 "cargo", "rustc", "gcc", "g++", "clang", "clang++", "go", "python3", "node",
-                // Common shell utilities for testing
                 "echo", "cat", "touch", "cp", "mkdir",
             ],
         }
