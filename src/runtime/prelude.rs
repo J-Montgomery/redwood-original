@@ -7,10 +7,6 @@ const PRELUDE_FILES: &[(&str, &str)] = &[
         include_str!("../../prelude/aliases.datalog"),
     ),
     (
-        "computed_attributes.datalog",
-        include_str!("../../prelude/computed_attributes.datalog"),
-    ),
-    (
         "dependency_resolution.datalog",
         include_str!("../../prelude/dependency_resolution.datalog"),
     ),

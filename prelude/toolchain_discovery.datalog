@@ -216,6 +216,27 @@ outputs(Target, Path) :-
     crate_name(Target, Name),
     concat("target/rustc/", Name, Path).
 
+target_name(Label, Name) :-
+    target(Label),
+    split(Label, ":", 1, Name).
+
+# Extract package from label
+target_package(Label, Package) :-
+    target(Label),
+    split(Label, ":", 0, Package).
+
+# Derive outputs for cargo binaries from conventions
+outputs(Target, Path) :-
+    cargo_binary(Target),
+    target_name(Target, Name),
+    concat("target/release/", Name, Path).
+
+# Derive outputs for cargo tests from conventions
+outputs(Target, Path) :-
+    cargo_test(Target),
+    target_name(Target, Name),
+    concat("target/debug/", Name, Path).
+
 # External crate discovery
 # External crates should be declared as base facts (not derived) to avoid circular dependencies
 # These facts should be generated in BUILD.datalog, typically via resolve() or explicit declarations
