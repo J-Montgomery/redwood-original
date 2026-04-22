@@ -45,10 +45,8 @@ def normalize_bazel_path(path: str, workspace_root: str) -> str:
 
     # Remove bazel-out prefix (generated files)
     if 'bazel-out' in path:
-        # Keep bazel-out paths as-is for now, they're generated artifacts
         return path
 
-    # Remove execroot prefix
     if 'execroot' in path:
         parts = path.split('execroot/')
         if len(parts) > 1:
@@ -58,12 +56,9 @@ def normalize_bazel_path(path: str, workspace_root: str) -> str:
             if '/' in after_execroot:
                 path = '/'.join(after_execroot.split('/')[1:])
 
-    # Handle external dependencies
     if path.startswith('external/'):
-        # Keep external prefix for third-party deps
         return path
 
-    # Make relative to workspace root
     try:
         if os.path.isabs(path):
             return os.path.relpath(path, workspace_root)
@@ -83,16 +78,12 @@ def parse_bazel_compile_command(cmd: Dict, workspace_root: str) -> Tuple[str, st
     command = cmd.get('command', '')
     output = cmd.get('output', '')
 
-    # Parse command to extract flags
     import shlex
     parts = shlex.split(command)
 
-    # Extract compiler - normalize to tool name without path
-    # Bazel often uses full paths to hermetic compilers
     compiler_path = parts[0] if parts else 'gcc'
     compiler = os.path.basename(compiler_path)
 
-    # Normalize compiler names
     if compiler in ['clang++', 'c++', 'clang++-17', 'clang++-16']:
         compiler = 'g++'
     elif compiler in ['clang', 'cc', 'clang-17', 'clang-16']:
@@ -104,12 +95,10 @@ def parse_bazel_compile_command(cmd: Dict, workspace_root: str) -> Tuple[str, st
     while i < len(parts):
         part = parts[i]
 
-        # Skip input file
         if part == source or part.endswith(source):
             i += 1
             continue
 
-        # Extract output file
         if part == '-o' and i + 1 < len(parts):
             output = parts[i + 1]
             i += 2
@@ -124,19 +113,15 @@ def parse_bazel_compile_command(cmd: Dict, workspace_root: str) -> Tuple[str, st
             i += 1
             continue
 
-        # Keep all other flags
         if part.startswith('-'):
-            # Skip -c flag (we add it separately with {sources} template)
             if part == '-c':
                 i += 1
                 continue
 
-            # Handle flags with arguments - combine them
             if part in ['-I', '-D', '-isystem', '-iquote', '-include', '-std',
                        '-march', '-mtune', '-MF', '-MD'] and i + 1 < len(parts):
                 next_part = parts[i + 1]
                 if not next_part.startswith('-'):
-                    # For include paths, normalize Bazel sandbox paths
                     if part in ['-I', '-isystem', '-iquote']:
                         next_part = normalize_bazel_path(next_part, workspace_root)
 
@@ -145,7 +130,6 @@ def parse_bazel_compile_command(cmd: Dict, workspace_root: str) -> Tuple[str, st
                         i += 2
                         continue
 
-                    # Combine flag with its argument
                     flags.append(f"{part} {next_part}")
                     i += 2
                     continue
@@ -154,7 +138,6 @@ def parse_bazel_compile_command(cmd: Dict, workspace_root: str) -> Tuple[str, st
 
         i += 1
 
-    # Normalize paths
     source = normalize_bazel_path(source, workspace_root)
     if output:
         output = normalize_bazel_path(output, workspace_root)
@@ -168,10 +151,8 @@ def generate_target_label(output_file: str, workspace_root: str) -> str:
 
     Bazel labels like //src/main:app.o -> use similar format
     """
-    # Normalize path
     rel_path = output_file
 
-    # Create target label: //dir/subdir:filename
     path_parts = Path(rel_path).parts
     if len(path_parts) > 1:
         directory = '/'.join(path_parts[:-1])
@@ -193,7 +174,6 @@ def find_workspace_root(compile_commands_path: str) -> str:
             return current
         current = os.path.dirname(current)
 
-    # Fallback to directory containing compile_commands.json
     return os.path.dirname(os.path.abspath(compile_commands_path))
 
 
@@ -206,7 +186,6 @@ def generate_datalog(compile_commands: List[Dict], workspace_root: str) -> str:
         "",
     ]
 
-    # Collect all outputs first
     all_outputs = set()
     commands_by_output = {}
 
@@ -216,44 +195,32 @@ def generate_datalog(compile_commands: List[Dict], workspace_root: str) -> str:
             all_outputs.add(output)
             commands_by_output[output] = (compiler, source, flags, directory)
 
-    # Generate facts for each compilation unit
     for output, (compiler, source, flags, directory) in commands_by_output.items():
         target_label = generate_target_label(output, workspace_root)
 
-        # Resolve source to absolute path if it exists
         if os.path.isabs(source):
             source_abs = source
         else:
             source_abs = os.path.abspath(os.path.join(workspace_root, source))
 
-        # Use absolute path for sources to avoid path issues
         if os.path.exists(source_abs):
             source_path = source_abs
         else:
-            # Fallback to relative if absolute doesn't exist
             source_path = source
 
         lines.append(f'# Target: {target_label}')
         lines.append(f'target("{escape_datalog_string(target_label)}").')
         lines.append(f'kind("{escape_datalog_string(target_label)}", system_tool).')
 
-        # Use normalized compiler name
+
         lines.append(f'attr("{escape_datalog_string(target_label)}", "tool", "{escape_datalog_string(compiler)}").')
-
-        # Add -o flag and output template
         lines.append(f'attr("{escape_datalog_string(target_label)}", "-o", "{{output}}").')
-
-        # Add compilation flags as attributes
         lines.append(f'attr("{escape_datalog_string(target_label)}", "-c", "{{sources}}").')
 
         for flag in flags:
-            # Use flag itself as key to match test pattern
             lines.append(f'attr("{escape_datalog_string(target_label)}", "{escape_datalog_string(flag)}", "").')
 
-        # Add source file
         lines.append(f'sources("{escape_datalog_string(target_label)}", "{escape_datalog_string(source_path)}").')
-
-        # Add output
         lines.append(f'outputs("{escape_datalog_string(target_label)}", "{escape_datalog_string(output)}").')
 
         lines.append('')

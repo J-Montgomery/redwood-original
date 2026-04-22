@@ -26,7 +26,6 @@ fn cargo_binary_helper_derives_kind_and_attrs() {
         db.compile_rule(rule);
     }
 
-    // Insert cargo_binary fact
     db.insert_facts(vec![
         Fact {
             predicate: "target".to_string(),
@@ -49,7 +48,6 @@ fn cargo_binary_helper_derives_kind_and_attrs() {
         },
     ]);
 
-    // Check if kind is derived
     let kind_facts = db.query("kind", &[]);
     eprintln!("kind facts: {:?}", kind_facts);
     let has_kind = kind_facts.iter().any(|f| {
@@ -61,7 +59,6 @@ fn cargo_binary_helper_derives_kind_and_attrs() {
     });
     assert!(has_kind, "kind should be derived from cargo_binary");
 
-    // Check if tool attr is derived
     let attr_facts = db.query("attr", &[]);
     eprintln!("attr facts: {:?}", attr_facts);
     let has_tool = attr_facts.iter().any(|f| {
@@ -75,7 +72,6 @@ fn cargo_binary_helper_derives_kind_and_attrs() {
     });
     assert!(has_tool, "tool attr should be derived from cargo_binary");
 
-    // Try to plan the build
     let system_tool = SystemTool::new();
     let target = redwood::datalog::TargetLabel::new("//test", "app");
     let result = system_tool.plan(&target, &mut db);

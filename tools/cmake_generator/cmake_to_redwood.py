@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """
-CMake to Redwood BUILD.datalog Generator
+Untested CMake to Redwood BUILD.datalog Generator
 
 Converts CMake's compile_commands.json to BUILD.datalog format.
-This is a standalone implementation that can be used until the C++ generator is integrated.
-
 Usage:
     cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON /path/to/source
     python3 cmake_to_redwood.py build/compile_commands.json > BUILD.datalog
@@ -43,15 +41,12 @@ def parse_compile_command(cmd: Dict) -> Tuple[str, str, List[str], str, str]:
     command = cmd.get('command', '')
     output = cmd.get('output', '')
 
-    # Parse command to extract flags
     import shlex
     parts = shlex.split(command)
 
-    # Extract compiler - normalize to tool name without path
     compiler_path = parts[0] if parts else 'gcc'
     compiler = os.path.basename(compiler_path)
 
-    # Normalize compiler names
     if compiler in ['clang++', 'c++']:
         compiler = 'g++'
     elif compiler in ['clang', 'cc']:
@@ -63,29 +58,23 @@ def parse_compile_command(cmd: Dict) -> Tuple[str, str, List[str], str, str]:
     while i < len(parts):
         part = parts[i]
 
-        # Skip input file
         if part == source or part.endswith(source):
             i += 1
             continue
 
-        # Extract output file
         if part == '-o' and i + 1 < len(parts):
             output = parts[i + 1]
             i += 2
             continue
 
-        # Keep all other flags
         if part.startswith('-'):
-            # Skip -c flag (we add it separately with {sources} template)
             if part == '-c':
                 i += 1
                 continue
 
-            # Handle flags with arguments - combine them
             if part in ['-I', '-D', '-isystem', '-include', '-std', '-march', '-mtune'] and i + 1 < len(parts):
                 next_part = parts[i + 1]
                 if not next_part.startswith('-'):
-                    # Combine flag with its argument
                     flags.append(f"{part} {next_part}")
                     i += 2
                     continue
@@ -113,14 +102,6 @@ def generate_target_label(output_file: str, build_dir: str) -> str:
 
 
 def infer_dependencies(source: str, build_dir: str, all_outputs: Set[str]) -> List[str]:
-    """
-    Infer dependencies based on common patterns.
-    This is a heuristic - proper implementation would parse the compiler's dependency output.
-
-    For now, don't infer any dependencies. CMake's dependency tracking is complex and
-    requires parsing .d files or using CMake's built-in dependency scanner.
-    """
-    # Return empty - don't guess dependencies
     return []
 
 
@@ -133,7 +114,6 @@ def generate_datalog(compile_commands: List[Dict], build_dir: str) -> str:
         "",
     ]
 
-    # Collect all outputs first
     all_outputs = set()
     commands_by_output = {}
 
@@ -143,14 +123,11 @@ def generate_datalog(compile_commands: List[Dict], build_dir: str) -> str:
             all_outputs.add(output)
             commands_by_output[output] = (source, flags, directory, cmd)
 
-    # Generate facts for each compilation unit
     for output, (source, flags, directory, cmd) in commands_by_output.items():
         compiler, source, flags, output, directory = parse_compile_command(cmd)
         target_label = generate_target_label(output, build_dir)
 
-        # Normalize paths - keep sources as absolute paths
         source_abs = os.path.abspath(os.path.join(directory, source))
-        # Always use absolute path for sources to avoid sandbox conflicts
         source_rel = source_abs
 
         output_rel = normalize_path(output, build_dir)
@@ -158,24 +135,14 @@ def generate_datalog(compile_commands: List[Dict], build_dir: str) -> str:
         lines.append(f'# Target: {target_label}')
         lines.append(f'target("{escape_datalog_string(target_label)}").')
         lines.append(f'kind("{escape_datalog_string(target_label)}", system_tool).')
-
-        # Use normalized compiler name
         lines.append(f'attr("{escape_datalog_string(target_label)}", "tool", "{escape_datalog_string(compiler)}").')
-
-        # Add -o flag and output template
         lines.append(f'attr("{escape_datalog_string(target_label)}", "-o", "{{output}}").')
-
-        # Add compilation flags as attributes (not numbered)
         lines.append(f'attr("{escape_datalog_string(target_label)}", "-c", "{{sources}}").')
 
         for flag in flags:
-            # Use flag itself as key to match test pattern
             lines.append(f'attr("{escape_datalog_string(target_label)}", "{escape_datalog_string(flag)}", "").')
 
-        # Add source file
         lines.append(f'sources("{escape_datalog_string(target_label)}", "{escape_datalog_string(source_rel)}").')
-
-        # Add output
         lines.append(f'outputs("{escape_datalog_string(target_label)}", "{escape_datalog_string(output_rel)}").')
 
         # Infer dependencies (simplified - real implementation needs more work)

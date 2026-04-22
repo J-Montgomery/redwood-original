@@ -77,7 +77,6 @@ fn verify_transitive_deps_count() {
     let results = db.query("transitive_deps", &[]);
     println!("Results: {:?}", results);
 
-    // Verify we get the expected 10 transitive deps for a 5-node chain
     assert_eq!(
         results.len(),
         10,
@@ -89,7 +88,6 @@ fn verify_transitive_deps_count() {
 fn verify_larger_transitive_chain() {
     let mut facts = Vec::new();
 
-    // Create longer chain with 10 targets
     for i in 0..10 {
         let target = format!("//target{}", i);
         facts.push(Fact {
@@ -159,7 +157,6 @@ fn verify_larger_transitive_chain() {
     let results = db.query("transitive_deps", &[]);
     println!("Results count: {}", results.len());
 
-    // 10 targets in chain: sum(1..9) = 45 transitive deps
     assert_eq!(
         results.len(),
         45,

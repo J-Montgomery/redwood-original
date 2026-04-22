@@ -192,7 +192,6 @@ output(O) :- resolve("//cmd:echo", O).
     });
     assert!(has_derived, "Regular query should see derived attr");
 
-    // Verify resolve works (would stack overflow with the old implementation)
     let results = db.query("output", &[]);
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].args[0], Value::String("hello".to_string()));

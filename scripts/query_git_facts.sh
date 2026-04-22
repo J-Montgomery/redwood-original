@@ -15,10 +15,8 @@ COMMIT=$1
 PREDICATE=$2
 NUM_ARGS=$3
 
-# Get BUILD.datalog from commit
 BUILD_CONTENT=$(git show "$COMMIT:BUILD.datalog" 2>/dev/null) || exit 1
 
-# Extract facts based on arity
 case "$NUM_ARGS" in
     1)
         # predicate("value")

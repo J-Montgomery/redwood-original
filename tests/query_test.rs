@@ -75,7 +75,6 @@ fn query_requires_tool_after_prelude() {
         db.compile_rule(rule);
     }
 
-    // Query requires_tool directly - dependencies should auto-compute
     let results = db.query("requires_tool", &[]);
 
     assert_eq!(results.len(), 1, "Should find one requires_tool fact");
@@ -149,7 +148,6 @@ fn query_dependencies_of_target() {
 
     let results = db.query("deps", &[]);
 
-    // Direct dependencies of //app:main
     let main_deps: Vec<String> = results
         .iter()
         .filter_map(|f| {
@@ -209,7 +207,6 @@ fn query_reverse_dependencies() {
         db.compile_rule(rule);
     }
 
-    // Define reverse dependency query
     let query_content = r#"
         depends_on(Dependent, Library) :- deps(Dependent, Library).
     "#;
@@ -229,7 +226,6 @@ fn query_reverse_dependencies() {
 
     let results = db.query("depends_on", &[]);
 
-    // Find what depends on //lib:core
     let core_dependents: Vec<String> = results
         .iter()
         .filter_map(|f| {
@@ -249,8 +245,6 @@ fn query_reverse_dependencies() {
     assert!(core_dependents.contains(&"//app:main".to_string()));
     assert!(core_dependents.contains(&"//app:test".to_string()));
 }
-
-// Removed: transitive_deps predicate doesn't exist in prelude yet
 
 #[test]
 fn query_attributes_for_toolchain() {
@@ -297,7 +291,6 @@ fn query_attributes_for_toolchain() {
     assert!(gcc_attrs.contains(&"-fPIC".to_string()));
     assert!(gcc_attrs.contains(&"-Wall".to_string()));
 
-    // Get target-specific attrs
     let target_attrs: Vec<String> = results
         .iter()
         .filter_map(|f| {
@@ -362,7 +355,6 @@ fn query_deep_rule_dependency_chain() {
         }],
     });
 
-    // Query level3 directly - should auto-compute entire chain
     let results = db.query("level3", &[]);
 
     assert_eq!(results.len(), 1);

@@ -11,7 +11,6 @@ fn pattern_matching_with_prefix() {
         db.compile_rule(rule);
     }
 
-    // Add targets
     let datalog = r#"
         target("//app:server").
         target("//app:client").
@@ -24,7 +23,6 @@ fn pattern_matching_with_prefix() {
         db.compile_rule(rule);
     }
 
-    // Test matches_pattern with prefix
     let results = db.query("matches_pattern", &[None, Some("//app")]);
     assert_eq!(results.len(), 3);
 
@@ -58,7 +56,6 @@ fn pattern_matching_exact() {
         db.compile_rule(rule);
     }
 
-    // Exact match should work (both rules fire: exact match + prefix match)
     let results = db.query("matches_pattern", &[None, Some("//app:server")]);
     assert!(!results.is_empty());
     assert!(results
@@ -76,7 +73,6 @@ fn pattern_matching_with_namespace() {
         db.compile_rule(rule);
     }
 
-    // Add targets with namespaces
     let datalog = r#"
         target("//external/boost//ranges:lib").
         target("//external/boost//algorithm:sort").
@@ -88,7 +84,6 @@ fn pattern_matching_with_namespace() {
         db.compile_rule(rule);
     }
 
-    // Match external/boost targets
     let results = db.query("matches_pattern", &[None, Some("//external/boost//")]);
     assert_eq!(results.len(), 2);
 
