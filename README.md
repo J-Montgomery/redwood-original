@@ -1,12 +1,50 @@
 # Redwood Build System
 
-Datalog-based build system with HashMap evaluation for speed and simplicity.
+A datalog-based build system
+
+> [!IMPORTANT]
+> Every file in this repository (except for this README) was completely
+> generated with LLMs to explore their limitations in building systems
+> outside the training set and see if datalog-based build system is a good idea.
+
+This prototype explores what's possible if you treat your build graph as a
+relational graph of targets. It defines a (probably) buggy datalog engine
+with a minimal set of primitives, on which the rest of the functionality is
+built.
+
+The build system is implemented in itself. Everything from from how it determines
+what files to rebuild, to how it interacts with version control is entirely customizeable
+with user code.
+
+The three core concepts behind the design are:
+
+1. All data stored as facts in the underlying database
+2. Datalog rules are evaluated to derive further facts
+3. BuildKind rules tell the engine what commands to execute along the way.
+
+## What's Possible With Redwood
+
+- Self-hosting
+- Building only the changed targets between two git hashes
+- Manually rebuilding any set of targets
+- Native dry-run builds
+
+Redwood's view of the build graph is (mostly) monotonic. Unused sections of the build graph don't even need their BUILD files loaded, unlike bazel.
 
 ## Building
 
 ```bash
 cargo build --release
 cargo test
+```
+
+## Self-Hosting
+
+Redwood builds itself:
+
+```bash
+cargo build --release
+target/release/redwood build //bootstrap:redwood
 ```
 
 ## Usage
@@ -41,34 +79,31 @@ target/release/redwood query "sources(X, Y)"
 Format BUILD.datalog files:
 
 ```bash
-target/release/redwood format              # Format all BUILD.datalog in workspace
+target/release/redwood format                 # Format all BUILD.datalog in workspace
 target/release/redwood format BUILD.datalog   # Format specific file
-target/release/redwood format src/          # Format directory recursively
+target/release/redwood format src/            # Format directory recursively
 ```
-
-## Documentation
-
-- **[TUTORIAL.md](TUTORIAL.md)** - Learn by example - **START HERE**
-- [SPEC.md](SPEC.md) - Language specification and design philosophy
-- [LICENSE_VALIDATION.md](LICENSE_VALIDATION.md) - License constraint system
-
-The formatter:
-- Detects syntax errors without formatting
-- Preserves comments
-- Consistent indentation and spacing
-- One fact per line, rule bodies indented
 
 ## Incremental Builds
 
-Content-based caching using xxhash. Cache includes sources, attrs, and toolchain paths.
+The rebuild logic is defined in prelude datalog. The engine lazily instantiates
+file_exists and file_hash facts into the EDB that can be used to create custom rebuild logic.
 
-Rebuild triggers:
+If the engine determines if the needs_rebuild fact is true for the output based on xxhash over all rule inputs, including sources, attrs, and toolchain paths.
+
+The engine :
+1. Lazily checks for dirtiness
+2. Hashes sources, attrs, and other rule inputs into the facts database
+3. Queries `needs_rebuild(Target)` to decide if rebuild needed
+4. Skips otherwise
+5. Stores a hash of the output in `.redwood/cache/`
+
+Default rebuild triggers:
 - Output missing
 - Source file changed
 - Attribute changed (flags, options)
 - Tool binary changed (if tracked with `build_input`)
 
-Prelude defines rebuild logic in datalog:
 
 ```datalog
 needs_rebuild(T) :-
@@ -83,18 +118,9 @@ needs_rebuild(T) :-
     NewHash != OldHash.
 ```
 
-Build system:
-1. Checks only files relevant to each target (lazy scanning)
-2. Hashes sources, attrs, and build_input files
-3. Queries `needs_rebuild(Target)` to decide if rebuild needed
-4. Skips up-to-date targets
-5. Stores hashes in `.redwood/cache/`
-
-Lazy filesystem scanning: only checks existence of outputs and computes hashes for sources of the target being built. Scales with files-per-target, not total workspace files.
-
 ### Tracking Tool Binaries
 
-By default, the cache tracks toolchain paths but not binary content. To invalidate cache when tool binaries change (e.g., cargo upgrade), use `build_input`:
+By default, the cache tracks toolchain paths but not binary content. To invalidate the hash cache when tool binaries change (e.g., cargo upgrade), a `build_input` primitive is provided:
 
 ```datalog
 cargo_binary("//app:server").
@@ -105,12 +131,9 @@ build_input("//app:server", Path) :-
     tool_available("cargo", Path, _).
 ```
 
-The `build_input(Target, Path)` predicate hashes files without passing them to the build command. Useful for:
-- Tool binaries (cargo, gcc, rustc)
-- Build scripts
-- Configuration files affecting builds
+The `build_input(Target, Path)` predicate hashes files without passing them to the build command. 
 
-The `_` wildcard matches any value without binding it. Use `tool_available(Tool, Path, _)` to get the discovered tool path.
+The `_` wildcard matches any value without binding it. e.g. Use `tool_available(Tool, Path, _)` to get the discovered tool path.
 
 For tracking multiple targets:
 
@@ -132,13 +155,9 @@ build_input(T, Path) :-
 
 ## Build Kinds
 
-All builds use **system_tool** - generic tool invocation via attributes. The prelude provides helpers that automatically configure common toolchains.
+Toolchains are wrappers around a generic tool invocation rule called **system_tool** that allows customization via attributes. The prelude provides helpers that automatically configure common toolchains. The engine scans PATH to automatically discover a few known tools (cargo, rustc, gcc, g++, clang, go, python3, node) and inserts `tool_available(Tool, Path, Version)` facts.
 
-**Helpers automatically derive facts:**
-
-```datalog
-cargo_binary("//app:cli").
-```
+Datalog rules in the prelude are used to match define which kinds of targets use which available tools:
 
 Derives:
 - `target("//app:cli")` - target existence
@@ -147,9 +166,6 @@ Derives:
 - `attr("//app:cli", "0", "build")` - command args
 - `attr("//app:cli", "1", "--release")` - command args
 
-No need to declare `target()` separately. Helpers do it automatically.
-
-**system_tool** - Tool invocation via attributes
 
 ```datalog
 target("//app:server").
@@ -160,7 +176,7 @@ attr("//app:server", "-o", "{output}").
 sources("//app:server", "server.c").
 ```
 
-The prelude provides helper predicates and default flags for common toolchains:
+The prelude provides helper predicates and default flags for the following toolchains:
 - `system_cc(Target)` - gcc with `-fPIC`, `-Wall`
 - `system_cxx(Target)` - g++ with `-fPIC`, `-Wall`, `-std=c++17`
 - `system_clang(Target)` - clang with `-fPIC`, `-Wall`
@@ -173,11 +189,28 @@ The prelude provides helper predicates and default flags for common toolchains:
 - `cargo_lib(Target)` - cargo build --release --lib
 - `cargo_test(Target)` - cargo test
 
+```datalog
+toolchain(Target, Tool, Path) :-
+    requires_tool(Target, Tool),
+    tool_available(Tool, Path, Version).
+
+requires_tool(Target, Tool) :-
+    kind(Target, system_tool),
+    attr(Target, "tool", Tool).
+```
+
+You can override default tool paths in any BUILD.datalog. Overrides take precedence over discovered tools.
+
+```datalog
+toolchain_override("gcc", "/opt/gcc-12/bin/gcc").
+toolchain_override("cargo", "/home/user/.cargo/bin/cargo").
+```
+
 Attributes configure command-line invocations. Reserved attributes:
 - `tool` - which system binary to invoke (gcc, g++, go, node, python3, etc.)
 - `output_dir` - where to place output files (default: `target/{tool}`)
 
-All other attributes become command-line arguments. If the value is empty, only the key is passed (like `-O3`). If the value is non-empty, both key and value are passed (like `-o output.bin`).
+All other attributes become command-line arguments. If the value is empty, only the key is passed (e.g. `-O3`). If the value is non-empty, both key and value are passed separated by a space (e.g. `-o output.bin`).
 
 Template expansion:
 - `{output}` - replaced with output file path
@@ -238,11 +271,11 @@ attr("//app:server:gcc", "-march", "native").  # Only //app:server with gcc
 
 Priority: Target:Tool > Tool > Target
 
-This enables toolchain-wide defaults (tool-level) with per-target overrides (target-level) and conditional compilation (target:tool).
+This enables toolchain-wide defaults with per-target overrides and conditional compilation.
 
 ## Constraint Checking
 
-Constraints validate targets in datalog:
+Constraints can be used to invalidate erroneous targets in datalog:
 
 ```datalog
 constraint_failed(Target, "requires at least one source") :-
@@ -252,53 +285,12 @@ constraint_failed(Target, "requires at least one source") :-
 has_sources(Target) :- sources(Target, Path).
 ```
 
-Build fails with error message if any `constraint_failed` facts exist for a target. Constraints are evaluated in datalog, not rust. Add new constraints by writing rules in prelude or BUILD.datalog.
-
-## Tool Discovery and Overrides
-
-At build time, system scans PATH for tools (cargo, rustc, gcc, g++, clang, go, python3, node) and inserts `tool_available(Tool, Path, Version)` facts.
-
-Prelude rules match requirements to available tools:
-
-```datalog
-toolchain(Target, Tool, Path) :-
-    requires_tool(Target, Tool),
-    tool_available(Tool, Path, Version).
-
-requires_tool(Target, Tool) :-
-    kind(Target, system_tool),
-    attr(Target, "tool", Tool).
-```
-
-Override tool paths in BUILD.datalog:
-
-```datalog
-toolchain_override("gcc", "/opt/gcc-12/bin/gcc").
-toolchain_override("cargo", "/home/user/.cargo/bin/cargo").
-```
-
-Overrides take precedence over discovered tools.
+The engine fails with the provided error message if any `constraint_failed` facts exist for a target. Constraints allow you to violate redwood's monotonicity, so best practice is to keep
+them local.
 
 ## Implementation
 
-### HashMap-Based Evaluation
 
-Simple and fast Datalog evaluation:
-
-- HashMap storage with lazy rule compilation
-- First-argument indexing for O(1) filtered queries
-- TC memoization per starting node
-- Semi-naive evaluation for transitive closure
-- BFS optimization for filtered TC queries
-- <3µs rule compilation for build system workloads
-- Topological sort for dependency ordering
-- Smart cache invalidation (only clears affected predicates)
-
-Three core concepts:
-
-1. **Everything is facts** - All data stored as facts in database
-2. **Datalog evaluation** - Rules evaluated to derive facts
-3. **BuildKind bridges queries to actions** - Datalog describes WHAT, BuildKind executes HOW
 
 Datalog features:
 
@@ -382,14 +374,3 @@ prelude/              # System-loaded Datalog rules
 ├── needs_rebuild.datalog       # Incremental build logic
 └── toolchain_discovery.datalog # Helpers and constraints
 ```
-
-## Self-Hosting
-
-Redwood builds itself:
-
-```bash
-cargo build --release
-target/release/redwood build //redwood:redwood
-```
-
-Verified through 3-generation cycle (gen1 == gen2).
